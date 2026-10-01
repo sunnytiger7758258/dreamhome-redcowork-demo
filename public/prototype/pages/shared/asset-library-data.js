@@ -230,6 +230,18 @@ export function toggleFavorite(id) {
   return setFavorites(favorites);
 }
 
+// REDcowork is a static-only build, so friend-shared furniture is collected
+// into the same local library used by the rest of the prototype.
+export async function addCanonicalAssetToLibrary(id) {
+  const asset = getAsset(id);
+  if (!asset) throw new Error('找不到这个家具');
+  const favorites = getFavorites();
+  favorites.add(id);
+  const saved = setFavorites(favorites);
+  if (!saved.has(id)) throw new Error('这个家具不在精简资产清单中');
+  return asset;
+}
+
 export function isSupportedFloorplan(asset) {
   return asset?.kind === 'floorplan' && asset.supported === true;
 }
