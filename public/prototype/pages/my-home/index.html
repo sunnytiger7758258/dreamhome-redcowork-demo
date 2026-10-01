@@ -1254,10 +1254,9 @@
     function renderRooms() { ui.roomSelector.innerHTML = `<button class="room-pill ${state.selectedRoomId === null ? 'is-active' : ''}" data-room-id="">全屋</button>${state.project.rooms.map((room) => `<button class="room-pill ${state.selectedRoomId === room.id ? 'is-active' : ''}" data-room-id="${room.id}">${room.name}</button>`).join('')}`; }
     function getFavoriteAssets(kind) { const favorites=getFavorites(); return getAssets(kind).filter((asset)=>favorites.has(asset.id)); }
     function getDrawerAssets() {
-      if(state.assemblyAssetIds.length)return state.assemblyAssetIds.map((id)=>getAsset(id)).filter((asset)=>asset?.kind==='furniture');
-      // REDcowork 的装修抽屉与精简资产库共用同一数据源；收藏状态只负责标记，
-      // 不再把未收藏家具从这里隐藏，否则初次进入只会看到默认的两件家具。
-      return getAssets('furniture');
+      const favorites=getFavorites();
+      if(state.assemblyAssetIds.length)return state.assemblyAssetIds.map((id)=>getAsset(id)).filter((asset)=>asset?.kind==='furniture'&&favorites.has(asset.id));
+      return getFavoriteAssets('furniture');
     }
     function refreshTransformActions() { const placement=state.selectedPlacementId&&state.project?.placements.find((item)=>item.id===state.selectedPlacementId),show=Boolean(placement&&!state.drawerExpanded&&!state.caseMode);ui.transformConfirm.classList.toggle('is-visible',show);ui.transformDelete.classList.toggle('is-visible',show);ui.transformHeight.classList.toggle('is-visible',show); }
     function assetCategoryLabel(asset) { return FURNITURE_CATEGORIES.find((category)=>category.id===asset.category)?.label || '其他'; }
@@ -1342,9 +1341,9 @@
       homeSceneService.saveProject(starter);enterProjectEditor(starter);activateAssemblyTray(ids);
     }
 
-    // Recommendations only use the shared canonical catalog. This keeps the
-    // assistant, the inspiration library and saved room placements on one ID.
-    function getRecommendationAssets() { return getAssets('furniture'); }
+    // Recommendations only use collected items from the shared canonical catalog.
+    // Uncollected furniture stays in the inspiration library until the user saves it.
+    function getRecommendationAssets() { return getFavoriteAssets('furniture'); }
     function ensureCatalogAssetRegistered(assetId) { return Boolean(getAsset(assetId)); }
 
     function canEditProject() { return Boolean(state.project)&&!state.caseMode&&!state.friendMode&&!state.ownReadOnly&&!state.publishedMode; }

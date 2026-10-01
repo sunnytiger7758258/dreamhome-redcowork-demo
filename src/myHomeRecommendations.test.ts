@@ -6,6 +6,10 @@ const page = readFileSync(
   join(process.cwd(), 'public/prototype/pages/my-home/index.html'),
   'utf8',
 )
+const assetLibrary = readFileSync(
+  join(process.cwd(), 'public/prototype/pages/shared/asset-library-data.js'),
+  'utf8',
+)
 
 describe('my home intelligent recommendations', () => {
   it('keeps AI recommendations in the renovation drawer', () => {
@@ -14,8 +18,16 @@ describe('my home intelligent recommendations', () => {
     expect(page).toContain('包工球为你挑了这些')
   })
 
-  it('reads the full trimmed furniture catalog instead of favorites only', () => {
-    expect(page).toContain("return getAssets('furniture');")
+  it('only exposes collected furniture to assembly and recommendations', () => {
+    expect(page).toContain("return getFavoriteAssets('furniture');")
+    expect(page).toContain("function getRecommendationAssets() { return getFavoriteAssets('furniture'); }")
+    expect(page).toContain("asset?.kind==='furniture'&&favorites.has(asset.id)")
+  })
+
+  it('seeds eleven representative furniture favorites', () => {
+    const defaults = assetLibrary.match(/export const DEFAULT_FAVORITE_IDS = \[([\s\S]*?)\];/)?.[1] ?? ''
+    expect(defaults.match(/'ast_[^']+'/g)).toHaveLength(11)
+    expect(assetLibrary).toContain('redcowork-eleven-assets-v2')
   })
 
   it('does not show the feed mascot in my home', () => {

@@ -3,10 +3,20 @@ import { BACKEND_ASSETS } from './library-assets.generated.js';
 const FAVORITES_KEY = 'dreamhome.asset-library.v1';
 const USER_ASSETS_KEY = 'dreamhome.user-assets.v1';
 const PROFILE_KEY = 'dreamhome.local-profile.v1';
-const FAVORITES_MIGRATION_KEY = 'dreamhome.asset-library.defaults.redcowork-two-assets-v1';
+const FAVORITES_MIGRATION_KEY = 'dreamhome.asset-library.defaults.redcowork-eleven-assets-v2';
+const LEGACY_DEFAULT_FAVORITE_IDS = new Set(['ast_00e00df1bfeb', 'ast_2044e3063585']);
 // 产品演示的首次打开收藏。当前用户已明确选择的快照会写入这里；浏览器后续操作仍覆盖本地状态。
 export const DEFAULT_FAVORITE_IDS = [
   'ast_00e00df1bfeb',
+  'ast_09f5ed9678b1',
+  'ast_8926f9413f29',
+  'ast_b80193251739',
+  'ast_ccc6f7405f39',
+  'ast_d8f0d7606d01',
+  'ast_5994f5b4f77c',
+  'ast_49b16f2d03ab',
+  'ast_55d33aa2ab71',
+  'ast_d83b2f2061bc',
   'ast_2044e3063585',
 ];
 
@@ -230,7 +240,8 @@ export function getFavorites() {
     const raw = localStorage.getItem(FAVORITES_KEY);
     const stored = raw ? JSON.parse(raw) : null;
     const storedIds = Array.isArray(stored?.ids) ? stored.ids : [];
-    const shouldSeed = !localStorage.getItem(FAVORITES_MIGRATION_KEY) && storedIds.length === 0;
+    const onlyLegacyDefaults = storedIds.length > 0 && storedIds.every((id) => LEGACY_DEFAULT_FAVORITE_IDS.has(id));
+    const shouldSeed = !localStorage.getItem(FAVORITES_MIGRATION_KEY) && (storedIds.length === 0 || onlyLegacyDefaults);
     const ids = shouldSeed || !stored ? DEFAULT_FAVORITE_IDS : storedIds;
     if (shouldSeed || !stored) {
       localStorage.setItem(FAVORITES_KEY, JSON.stringify({ version: 2, ids }));
