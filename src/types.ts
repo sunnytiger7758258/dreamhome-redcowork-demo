@@ -128,16 +128,31 @@ const imagePostMedia = (postId: string, filename: string) => (
   `/image-posts/${postId}/${filename}?v=image-post-20260808`
 )
 
-export const FEED_VIDEOS: FeedVideo[] = [
-  {
-    id: 'home-1',
-    src: `/videos/home-1.mp4?v=${FEED_MEDIA_VERSION}`,
-    poster: `/video-posters/home-1.jpg?v=${FEED_MEDIA_VERSION}`,
-    author: '@家居灵感研究所',
-    caption: '这个北欧风客厅太治愈了，每一处软装都想抄回家',
-    music: '原声 - home_vibes · 北欧治愈系居家BGM',
-    source: 'local',
-  },
+const amberFeedVideo = (
+  id: string,
+  ordinal: string,
+  overrides: Partial<Omit<FeedVideo, 'id' | 'src' | 'source'>> = {},
+): FeedVideo => ({
+  id,
+  // The eight Douyin source videos are versioned with the static prototype.
+  // Keep the feed pointed at that canonical GitHub/Vercel asset location.
+  src: `/prototype/assets/videos/${id}.mp4?v=${FEED_MEDIA_VERSION}`,
+  poster: `/video-posters/${id}.jpg?v=${FEED_MEDIA_VERSION}`,
+  author: '@家居灵感研究所',
+  caption: `家装灵感实拍 ${ordinal} · 把喜欢的家具圈进小工坊`,
+  music: '原声 - Amber 家装灵感视频',
+  source: 'amber',
+  ...overrides,
+})
+
+const ALL_FEED_VIDEOS: FeedVideo[] = [
+  amberFeedVideo('vid_40734d7f2e6c', '02', {
+    author: '@鸡蛋灌饼',
+    publishedAt: '5天前',
+    captionBadge: '查看图文版',
+    caption: '我说幸福万万岁！ #治愈系小窝 #宅家 #卧室布置',
+    music: '原声 - 鸡蛋灌饼',
+  }),
   {
     id: 'imgpost_178d69ed78142afc',
     mediaType: 'image-carousel',
@@ -151,7 +166,70 @@ export const FEED_VIDEOS: FeedVideo[] = [
     music: 'Beanie Beanie Beanie',
     source: 'amber',
   },
+  {
+    id: 'home-1',
+    src: `/videos/home-1.mp4?v=${FEED_MEDIA_VERSION}`,
+    poster: `/video-posters/home-1.jpg?v=${FEED_MEDIA_VERSION}`,
+    author: '@家居灵感研究所',
+    caption: '这个北欧风客厅太治愈了，每一处软装都想抄回家',
+    music: '原声 - home_vibes · 北欧治愈系居家BGM',
+    source: 'local',
+  },
+  amberFeedVideo('vid_b75d95dc92a7', '01', {
+    author: '@拾点',
+    publishedAt: '04月22日',
+    caption: '房价会跌，生活总不能跌吧～ #原木风室内装修 #日式原木风家居 #温馨…',
+    captionAction: '展开',
+    music: '原声 - 拾点',
+  }),
+  amberFeedVideo('vid_5c7efd168eb7', '03', {
+    author: '@拾点',
+    publishedAt: '01月01日',
+    caption: '普通人家在大城市的小房子｜69平3室2厅 #家的样子 #小户型 #理想的…',
+    captionAction: '展开',
+    music: '原声 - 拾点',
+  }),
+  amberFeedVideo('vid_182cbf77954d', '04', {
+    author: '@山月知心的家',
+    publishedAt: '5天前',
+    caption: '第 83 集｜两个人住，东西不多，清清爽爽的原木风小家 - 轻风格的家，',
+    captionAction: '展开',
+    music: '原声 - 山月知心的家',
+  }),
+  amberFeedVideo('vid_58a7a1504281', '05', {
+    author: '@sweet安宅',
+    authorBadge: '章节要点⌃',
+    publishedAt: '01月06日',
+    caption: 'room tour｜大城市普通人的家🏡 #ins风客厅布置 #人生选择题 #享受…',
+    captionAction: '展开',
+    music: '生活水底、nightfall',
+  }),
+  amberFeedVideo('vid_91fe552c5f7d', '06', {
+    author: '@云上的小路',
+    publishedAt: '05月24日',
+    caption: '买不起大房子，有一个48平的小家也很不错啊#抖音宝藏生活家#温馨的…',
+    captionAction: '展开',
+    music: '原声 - 云上的小路',
+  }),
+  amberFeedVideo('vid_5f32a0ac954a', '07', {
+    author: '@lila（求关注版）',
+    publishedAt: '07月03日',
+    caption: '27岁时给自己买的一室一厅',
+    music: '原声 - lila（求关注版）',
+  }),
+  amberFeedVideo('vid_605df2fff231', '08', {
+    author: '@一叁Iris',
+    publishedAt: '2025年08月11日',
+    caption: '一镜到底｜云参观耗时大半年装修好的家吧🏡 #家的样子 #一镜到底 #中…',
+    captionAction: '展开',
+    music: '原声 - 一叁Iris',
+  }),
 ]
+
+// REDcowork 纯前端提交只保留两条已确认的视频。
+export const FEED_VIDEOS = ALL_FEED_VIDEOS.filter((video) => (
+  video.id === 'vid_40734d7f2e6c' || video.id === 'vid_5c7efd168eb7'
+))
 
 // 兼容仍依赖单视频常量的旧模块；Feed 主界面使用 FEED_VIDEOS。
 export const VIDEO_SRC = FEED_VIDEOS[0].src ?? ''

@@ -1493,11 +1493,11 @@ function DreamHomeNavIcon({ kind }: { kind: 'capture' | 'feed' | 'library' | 'fa
 
 function DreamHomeBottomNav() {
   const items = [
-    { kind: 'capture' as const, label: '拍一张' },
-    { kind: 'feed' as const, label: '刷一刷', active: true },
-    { kind: 'library' as const, label: '灵感库' },
-    { kind: 'favorites' as const, label: '我的收藏' },
-    { kind: 'home' as const, label: '我的家' },
+    { kind: 'capture' as const, label: '拍一张', href: '/prototype/pages/capture/index.html' },
+    { kind: 'feed' as const, label: '刷一刷', href: '/prototype/pages/discover/index.html', active: true },
+    { kind: 'library' as const, label: '灵感库', href: '/prototype/pages/inspiration-library/index.html' },
+    { kind: 'favorites' as const, label: '我的收藏', href: '/prototype/pages/my-favorites/index.html' },
+    { kind: 'home' as const, label: '我的家', href: '/prototype/pages/my-home/index.html' },
   ]
   return (
     <nav className="dh-tabbar dh-tabbar--main" aria-label="主功能导航">
@@ -1505,16 +1505,10 @@ function DreamHomeBottomNav() {
         <a
           key={item.kind}
           className={`dh-tab ${item.active ? 'dh-tab--active' : ''}`}
-          href="#"
+          href={item.href}
           target="_top"
           aria-label={item.label}
           aria-current={item.active ? 'page' : undefined}
-          onClick={(event) => {
-            event.preventDefault()
-            if (!item.active) {
-              window.alert('REDcowork 纯前端版聚焦「刷到灵感 → 圈选 → 小工坊」核心演示链路。')
-            }
-          }}
         >
           <span className="dh-tab-icon"><DreamHomeNavIcon kind={item.kind} /></span>
         </a>

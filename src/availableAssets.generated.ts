@@ -1,10 +1,8 @@
 import type { LibraryComponent } from './types'
-import { SCENE_SUPPLEMENTAL_ASSETS } from './sceneSupplementalAssets'
-import { IMAGE_POST_ASSETS } from './imagePostAssets'
 
 // Generated from the reviewed available-assets-v1 dataset (149 assets).
 // Card art is the completed 2D input; detail pages load the matching GLB model.
-export const AVAILABLE_ASSETS: LibraryComponent[] = [
+const ALL_AVAILABLE_ASSETS: LibraryComponent[] = [
   {
     "id": "ast_002889f330aa",
     "category": "绿植",
@@ -6300,6 +6298,11 @@ export const AVAILABLE_ASSETS: LibraryComponent[] = [
   }
 ]
 
+// 每条保留视频只公开一个已经落库的对应家居组件。
+export const AVAILABLE_ASSETS = ALL_AVAILABLE_ASSETS.filter((asset) => (
+  asset.id === 'ast_00e00df1bfeb' || asset.id === 'ast_2044e3063585'
+))
+
 // The generated catalog keeps backend-facing `/asset-cdn/...` provenance,
 // while this static demo ships the reviewed derivatives under
 // `/prototype/assets`.  Resolve every runtime URL to the files that are
@@ -6316,7 +6319,7 @@ for (const asset of AVAILABLE_ASSETS) {
   }
 }
 
-export const AVAILABLE_ASSETS_BY_VIDEO = [...AVAILABLE_ASSETS, ...SCENE_SUPPLEMENTAL_ASSETS, ...IMAGE_POST_ASSETS].reduce<Record<string, LibraryComponent[]>>((groups, asset) => {
+export const AVAILABLE_ASSETS_BY_VIDEO = AVAILABLE_ASSETS.reduce<Record<string, LibraryComponent[]>>((groups, asset) => {
   const key = asset.sourceVideo?.videoId ?? 'unknown'
   ;(groups[key] ??= []).push(asset)
   return groups

@@ -5,7 +5,7 @@ import { FEED_VIDEOS } from './types'
 
 describe('reviewed asset delivery paths', () => {
   it('maps every canonical asset to the bundled prototype media', () => {
-    expect(AVAILABLE_ASSETS.length).toBeGreaterThan(0)
+    expect(AVAILABLE_ASSETS).toHaveLength(2)
 
     for (const asset of AVAILABLE_ASSETS) {
       expect(asset.sticker).toBe(`/prototype/assets/library/${asset.id}.jpg`)
@@ -16,18 +16,17 @@ describe('reviewed asset delivery paths', () => {
     }
   })
 
-  it('deduplicates the reviewed black living-room sofa and exposes missing detections', () => {
-    const assets = assetsForVideoFrame('vid_58a7a1504281', 9)
-    expect(assets.filter((asset) => asset.name === '三人沙发')).toHaveLength(1)
-    expect(assets.some((asset) => asset.name === '茶几')).toBe(true)
-    expect(detectedFurnitureForVideoFrame('vid_58a7a1504281', 9, assets)).toEqual(
-      expect.arrayContaining(['三人沙发', '茶几', '落地灯', '书桌']),
-    )
+  it('links one reviewed component to each retained video', () => {
+    const chair = assetsForVideoFrame('vid_40734d7f2e6c', 0)
+    const table = assetsForVideoFrame('vid_5c7efd168eb7', 118.5)
+    expect(detectedFurnitureForVideoFrame('vid_40734d7f2e6c', 0, chair)).toContain('办公椅')
+    expect(detectedFurnitureForVideoFrame('vid_5c7efd168eb7', 118.5, table)).toContain('餐桌')
   })
 
   it('starts the Feed with a video that has reviewed component data', () => {
-    const firstVideo = FEED_VIDEOS[0]
-    expect(firstVideo.id).toBe('home-1')
-    expect(FEED_VIDEOS.some((video) => video.mediaType === 'image-carousel')).toBe(true)
+    expect(FEED_VIDEOS.map((video) => video.id)).toEqual([
+      'vid_40734d7f2e6c',
+      'vid_5c7efd168eb7',
+    ])
   })
 })

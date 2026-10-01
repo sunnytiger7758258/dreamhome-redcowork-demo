@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/prototype/pages/discover/index.html",
+      "destination": "/index.html"
+    }
+  ]
+}

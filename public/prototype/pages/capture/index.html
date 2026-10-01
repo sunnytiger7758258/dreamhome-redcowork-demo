@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5fbf6" />
+  <title>DreamHome · 拍一张</title>
+  <link rel="stylesheet" href="./dreamhome-d-system.css" />
+  <link rel="stylesheet" href="../shared/tabbar.css" />
+  <link rel="stylesheet" href="../shared/status-bar.css" />
+  <style>
+    body { margin:0; min-height:100vh; background:linear-gradient(90deg,#faf4e6,#fefdf8 48%,#f8f2e3); color:var(--dh-fg-primary); font-family:var(--dh-font-sans); }
+    .preview-stage { min-height:100vh; display:grid; place-items:center; padding:28px 18px; box-sizing:border-box; }
+    .draw-app { height:calc(100% - 50px); padding:0 16px; display:flex; flex-direction:column; box-sizing:border-box; overflow:hidden; }
+    .draw-header { position:relative; display:grid; place-items:center; min-height:42px; padding-top:3px; }
+    /* 主页面顶栏：状态栏 + 标题栏统一为底部导航同色（白），营造真机 app 顶栏 */
+    .dh-screen.dh-topwhite .dh-statusbar { background: var(--dh-bg-surface); }
+    .dh-screen.dh-topwhite .draw-header { background: var(--dh-bg-surface); margin:0 -16px; padding-left:16px; padding-right:16px; box-shadow:0 2px 6px rgba(175,135,65,.06); }
+    .draw-title { margin:0; font-size:16px; letter-spacing:0; font-weight:var(--dh-font-weight-heavy); }
+    .service-status { position:absolute; right:0; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; gap:4px; margin:0; color:var(--dh-fg-muted); font-size:9px; font-weight:var(--dh-font-weight-bold); }
+    .service-status::before { content:""; width:6px; height:6px; border-radius:50%; background:#c9bda3; box-shadow:0 0 0 2px rgba(201,189,163,.18); }
+    .service-status[data-state="ready"] { color:#567053; }
+    .service-status[data-state="ready"]::before { background:#6f936d; box-shadow:0 0 0 2px rgba(111,147,109,.18); }
+    .service-status[data-state="failed"] { color:#a85b4b; }
+    .service-status[data-state="failed"]::before { background:#b96a58; box-shadow:0 0 0 2px rgba(185,106,88,.18); }
+    .draw-sub { margin:1px 0 0; font-size:10px; font-weight:var(--dh-font-weight-semibold); color:var(--dh-fg-muted); }
+    .draw-content { flex:1; min-height:0; display:flex; flex-direction:column; padding:10px 0 var(--dh-tabbar-safe-space); overflow:hidden; }
+    .phase { display:none; flex:1; min-height:0; flex-direction:column; }
+    .phase.is-active { display:flex; }
+
+    /* ---- 阶段 A · 拍照/选图 ---- */
+    /* 相框填满可用空间（控件比画一笔少 → 相框更大），生成按钮贴底、与画一笔水平对齐 */
+    .photo-wrap { position:relative; flex:1; min-height:0; border:1px solid rgba(117,139,113,.2); border-radius:18px; background:linear-gradient(150deg,#ffffff,#fefaf2); box-shadow:var(--dh-shadow-soft); overflow:hidden; }
+    .photo-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:0 22px; }
+    .photo-hint { margin:0; text-align:center; font-size:12px; line-height:1.65; font-weight:var(--dh-font-weight-semibold); color:var(--dh-fg-muted); }
+    .photo-empty.is-hidden { display:none; }
+    /* 包工球占位：待生成「包工球拍照」图后替换 src 即可 */
+    .photo-mascot { width:96px; height:96px; object-fit:contain; transform-origin:50% 88%; animation:mascot-sway 2.6s ease-in-out infinite; }
+    @keyframes mascot-sway { 0%,100%{transform:rotate(-2.2deg)} 50%{transform:rotate(2.2deg)} }
+    .photo-preview { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+    .photo-preview[hidden] { display:none; }
+    .photo-reset { position:absolute; right:10px; top:10px; z-index:3; display:inline-flex; align-items:center; gap:4px; height:30px; padding:0 12px; border:0; border-radius:999px; background:rgba(29,36,31,.72); color:#fff; font:inherit; font-size:11px; font-weight:var(--dh-font-weight-bold); cursor:pointer; }
+    .photo-reset[hidden] { display:none; }
+
+    .capture-actions { display:flex; gap:9px; margin-top:11px; }
+    .capture-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; border:1px solid rgba(110,132,107,.3); border-radius:15px; background:var(--dh-color-white,#fff); color:var(--dh-fg-primary); font:inherit; font-size:13px; font-weight:var(--dh-font-weight-bold); cursor:pointer; box-shadow:0 1px 3px rgba(44,59,45,.1); }
+    .capture-btn--primary { border:0; background:var(--dh-color-sage-600); color:#6b5330; box-shadow:0 8px 18px rgba(112,136,111,.22); }
+    .capture-btn:active { transform:scale(.985); }
+    .capture-btn svg { width:17px; height:17px; }
+    .capture-btn input { display:none; }
+
+    .category-row { margin-top:12px; }
+    .category-label { display:block; margin:0 0 6px 2px; font-size:10px; font-weight:var(--dh-font-weight-bold); color:var(--dh-fg-muted); }
+    .category-tabs { display:flex; gap:6px; overflow-x:auto; margin:0 -2px; padding:1px 3px 4px; scrollbar-width:none; }
+    .category-tabs::-webkit-scrollbar { display:none; }
+    .category-tab { flex:0 0 auto; border:1px solid rgba(110,132,107,.2); border-radius:999px; padding:5px 10px; background:rgba(255,255,255,.62); color:var(--dh-fg-secondary); font:inherit; font-size:10px; font-weight:var(--dh-font-weight-bold); cursor:pointer; }
+    .category-tab[aria-pressed="true"] { border-color:var(--dh-color-sage-600); background:var(--dh-color-sage-600); color:white; }
+
+    .primary-button { margin-top:12px; width:100%; height:44px; border:0; border-radius:15px; background:var(--dh-color-sage-600); color:#6b5330; font:inherit; font-size:14px; font-weight:var(--dh-font-weight-bold); cursor:pointer; box-shadow:0 10px 22px rgba(112,136,111,.24); }
+    .primary-button:disabled { opacity:.45; box-shadow:none; cursor:not-allowed; }
+    .primary-button:active:not(:disabled) { transform:scale(.985); }
+
+    /* ---- 阶段 B · 生成中 ---- */
+    .gen-phase { align-items:center; justify-content:center; text-align:center; gap:0; }
+    .gen-orbit { width:126px; height:126px; position:relative; display:grid; place-items:center; border-radius:50%; background:radial-gradient(circle at 34% 30%,#fff 0 7%,#dbead7 8% 40%,#c4d8bf 41% 100%); box-shadow:var(--dh-shadow-float); }
+    .gen-orbit::before { content:""; position:absolute; width:145px; height:42px; border:1px solid rgba(93,115,91,.45); border-radius:50%; transform:rotate(-28deg); }
+    .gen-mascot { position:relative; z-index:1; width:104px; height:104px; object-fit:contain; transform-origin:50% 80%; }
+    .gen-orbit[data-status="queued"] .gen-mascot { animation:mascot-pending 1.7s ease-in-out infinite; }
+    .gen-orbit[data-status="processing"] .gen-mascot { animation:mascot-work 1.1s ease-in-out infinite; }
+    .gen-spark { position:absolute; z-index:3; right:16px; top:32px; color:var(--dh-color-orange-500); font-size:17px; font-style:normal; opacity:0; }
+    .gen-orbit[data-status="processing"] .gen-spark { animation:gen-spark 1.15s ease-out infinite; }
+    @keyframes mascot-pending { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+    @keyframes mascot-work { 0%,100%{transform:rotate(-4deg) translateY(0)} 50%{transform:rotate(4deg) translateY(-3px)} }
+    @keyframes gen-spark { 0%{opacity:0;transform:scale(.4) translateY(4px)} 40%{opacity:1} 100%{opacity:0;transform:scale(1.3) translateY(-12px)} }
+    .gen-video { width:180px; height:auto; display:block; object-fit:contain; }
+    .gen-title { margin:18px 0 6px; font-size:17px; font-weight:var(--dh-font-weight-heavy); }
+    .gen-copy { margin:0; max-width:210px; color:var(--dh-fg-secondary); font-size:12px; line-height:1.6; }
+    .progress-track { width:184px; height:7px; margin:16px 0 0; border-radius:999px; background:rgba(112,136,111,.18); overflow:hidden; }
+    .progress-bar { height:100%; width:0; border-radius:999px; background:linear-gradient(90deg,var(--dh-color-sage-500),var(--dh-color-sage-700)); transition:width .4s ease; }
+    .gen-actions { display:flex; gap:8px; margin-top:20px; }
+    .secondary-button { min-height:38px; padding:0 16px; border:1px solid rgba(110,132,107,.28); border-radius:13px; background:rgba(255,255,255,.7); color:var(--dh-fg-secondary); font:inherit; font-size:12px; font-weight:var(--dh-font-weight-bold); cursor:pointer; }
+
+    /* ---- 阶段 C · 结果 ---- */
+    .result-phase { align-items:center; justify-content:flex-start; padding-top:6px; }
+    .result-badge { margin:2px 0 10px; padding:5px 11px; border-radius:999px; background:var(--dh-color-sage-100,#e4efdf); color:var(--dh-color-sage-800,#3f5540); font-size:11px; font-weight:var(--dh-font-weight-heavy); }
+    .result-list { width:100%; max-width:264px; box-sizing:border-box; display:flex; flex-direction:column; gap:9px; max-height:340px; overflow-y:auto; padding:2px; scrollbar-width:none; }
+    .result-list::-webkit-scrollbar { display:none; }
+    .result-item { display:flex; align-items:center; gap:11px; padding:9px; border:1px solid rgba(117,139,113,.2); border-radius:16px; background:rgba(255,255,255,.92); box-shadow:var(--dh-shadow-soft); }
+    .result-visual { position:relative; width:84px; height:84px; flex:none; border:1px solid var(--dh-border-soft); border-radius:12px; background:linear-gradient(145deg,#f7edda,#fffdf6); overflow:hidden; cursor:grab; touch-action:none; }
+    .result-visual:active { cursor:grabbing; }
+    .result-model-viewer { width:100%; height:100%; display:block; }
+    .result-model-hint { position:absolute; left:50%; bottom:3px; transform:translateX(-50%); padding:2px 5px; border-radius:999px; background:rgba(255,253,247,.78); color:#8b765a; font-size:7px; font-weight:var(--dh-font-weight-bold); white-space:nowrap; pointer-events:none; }
+    .result-visual .object { position:absolute; left:50%; bottom:11px; transform:translateX(-50%) scale(.92); transform-origin:bottom center; background:var(--object); box-shadow:inset 0 8px rgba(255,255,255,.18); }
+    .object--sofa{width:47px;height:22px;border-radius:12px 12px 5px 5px}.object--sofa::before{content:"";position:absolute;left:9px;top:-12px;width:29px;height:16px;border-radius:9px 9px 3px 3px;background:var(--accent)}
+    .object--chair{width:25px;height:23px;border-radius:7px 7px 4px 4px}.object--chair::before{content:"";position:absolute;left:4px;top:-14px;width:17px;height:18px;border-radius:7px 7px 2px 2px;background:var(--accent)}
+    .object--table{width:42px;height:15px;border-radius:50%;bottom:24px}.object--table::before{content:"";position:absolute;left:19px;top:12px;width:4px;height:20px;background:var(--accent)}
+    .object--lamp{width:4px;height:36px;border-radius:2px}.object--lamp::before{content:"";position:absolute;left:-10px;top:-10px;width:24px;height:13px;border-radius:50% 50% 3px 3px;background:var(--accent)}
+    .object--bed{width:46px;height:25px;border-radius:5px}.object--bed::before{content:"";position:absolute;left:5px;top:4px;width:35px;height:10px;border-radius:4px;background:var(--accent)}
+    .object--cabinet{width:39px;height:29px;border-radius:3px}
+    .object--plant{width:22px;height:23px;border-radius:45% 55% 38% 62%;background:var(--accent)}.object--plant::before{content:"";position:absolute;left:-7px;top:-8px;width:15px;height:22px;border-radius:50% 0 50% 0;background:var(--object)}
+    .result-body { flex:1; min-width:0; text-align:left; }
+    .result-name { width:100%; margin:0; padding:6px 9px; border:1px solid rgba(199,143,42,.28); border-radius:10px; background:rgba(252,246,233,.95); color:var(--dh-fg-primary); font:inherit; font-size:13px; font-weight:var(--dh-font-weight-bold); box-sizing:border-box; }
+    .result-meta { margin:6px 0 0 2px; font-size:10px; font-weight:var(--dh-font-weight-semibold); color:var(--dh-fg-muted); }
+    .result-actions { display:flex; flex-direction:column; gap:9px; width:100%; max-width:264px; margin-top:14px; }
+    .result-actions .primary-button { margin-top:0; height:44px; box-shadow:none; }
+    .link-row { display:flex; flex-direction:column; gap:9px; }
+    .link-row .secondary-button { width:100%; height:44px; min-height:0; text-align:center; text-decoration:none; display:grid; place-items:center; }
+
+    .toast { position:absolute; z-index:40; left:50%; bottom:78px; transform:translateX(-50%) translateY(8px); opacity:0; padding:9px 12px; border-radius:999px; background:rgba(29,36,31,.9); color:white; font-size:11px; font-weight:var(--dh-font-weight-semibold); pointer-events:none; transition:.2s ease; text-align:center; }
+    .toast.show { opacity:1; transform:translateX(-50%); }
+
+    @media (max-width:420px) { .preview-stage { min-height:100svh; padding:18px 10px; } .draw-app { padding:0 14px; } }
+  </style>
+</head>
+<body>
+  <main class="preview-stage">
+    <section class="dh-phone-shell" aria-label="DreamHome 拍一张">
+      <div class="dh-screen dh-root dh-topwhite">
+        <div class="dh-island" aria-hidden="true"></div>
+        <div class="dh-statusbar"><span class="status-time">9:41</span><div class="status-icons" aria-hidden="true"><div class="bars"><i></i><i></i><i></i></div><span>5G</span><div class="bat"></div></div></div>
+        <div class="draw-app">
+          <header class="draw-header">
+            <h1 class="draw-title">拍一张</h1>
+            <p class="service-status" id="serviceStatus" data-state="checking">连接 3D 服务</p>
+          </header>
+          <div class="draw-content">
+
+            <!-- 阶段 A · 拍照/选图 -->
+            <section class="phase is-active" id="capturePhase" aria-label="拍照或选图">
+              <div class="photo-wrap">
+                <div class="photo-empty" id="photoEmpty">
+                  <img class="photo-mascot" src="../../assets/mascot/states/mascot-thinking.png" alt="包工球在等你拍照" />
+                  <p class="photo-hint">拍一张喜欢的家具，<br />生成 3D 组件进入灵感库</p>
+                </div>
+                <img class="photo-preview" id="photoPreview" alt="已选图片或视频封面" hidden />
+                <video class="photo-preview" id="videoPreview" muted playsinline controls hidden></video>
+                <button class="photo-reset" id="photoReset" type="button" hidden>重新选择</button>
+              </div>
+              <div class="capture-actions">
+                <label class="capture-btn capture-btn--primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                  <span>拍照</span>
+                  <input id="cameraInput" type="file" accept="image/*" capture="environment" />
+                </label>
+                <label class="capture-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5-4 4-2-2L3 19"/></svg>
+                  <span>选择图片或视频</span>
+                  <input id="galleryInput" type="file" accept="image/*,video/*" />
+                </label>
+              </div>
+              <div class="category-row">
+                <span class="category-label">这是什么家具？</span>
+                <div class="category-tabs" id="categoryTabs" role="group" aria-label="家具品类"></div>
+              </div>
+              <button class="primary-button" id="generateBtn" type="button" disabled>生成</button>
+            </section>
+
+            <!-- 阶段 B · 生成中 -->
+            <section class="phase gen-phase" id="genPhase" aria-live="polite">
+              <video class="gen-video" id="genOrbit" src="../../assets/mascot/motion/working-hammer.webm" autoplay muted loop playsinline aria-label="包工球正在生成组件"></video>
+              <h2 class="gen-title" id="genTitle">正在识别照片</h2>
+              <p class="gen-copy" id="genCopy">包工球正在看你拍的家居照片</p>
+              <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+              <div class="gen-actions">
+                <button class="secondary-button" id="genBack" type="button">返回</button>
+                <button class="secondary-button" id="genRetry" type="button" hidden>重新生成</button>
+              </div>
+            </section>
+
+            <!-- 阶段 C · 结果 -->
+            <section class="phase result-phase" id="resultPhase" aria-live="polite">
+              <span class="result-badge" id="resultBadge">本次共生成这些家具</span>
+              <div class="result-list" id="resultList"></div>
+              <div class="result-actions">
+                <a class="primary-button" id="toMyHome" href="../my-home/index.html" style="display:grid;place-items:center;text-decoration:none;">去我的家摆放</a>
+                <div class="link-row">
+                  <a class="secondary-button" id="toLibrary" href="../my-favorites/index.html">查看我的收藏</a>
+                  <button class="secondary-button" id="captureAgain" type="button">再拍一张</button>
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+        <nav class="dh-tabbar dh-tabbar--main" aria-label="主功能导航"><a class="dh-tab dh-tab--active" href="./index.html" aria-label="拍一张" aria-current="page"><span class="dh-tab-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.7 4.6c-.6 0-1.15.32-1.44.84l-.7 1.24H4.6A2.6 2.6 0 0 0 2 9.32v8.28a2.6 2.6 0 0 0 2.6 2.6h14.8a2.6 2.6 0 0 0 2.6-2.6V9.32a2.6 2.6 0 0 0-2.6-2.6h-1.96l-.7-1.24a1.65 1.65 0 0 0-1.44-.84H8.7Zm3.3 5.1a3.55 3.55 0 1 0 0 7.1 3.55 3.55 0 0 0 0-7.1Z"/></svg></span></a><a class="dh-tab" href="../discover/index.html" aria-label="刷一刷"><span class="dh-tab-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6.4 3.2h11.2A3.4 3.4 0 0 1 21 6.6v10.8a3.4 3.4 0 0 1-3.4 3.4H6.4A3.4 3.4 0 0 1 3 17.4V6.6a3.4 3.4 0 0 1 3.4-3.4Zm3.5 5.05c-.5-.3-1.14.06-1.14.65v6.3c0 .59.64.95 1.14.65l5.2-3.15c.48-.29.48-1.01 0-1.3l-5.2-3.15Z"/></svg></span></a><a class="dh-tab" href="../inspiration-library/index.html" aria-label="灵感库"><span class="dh-tab-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 2.6a6.4 6.4 0 0 0-3.9 11.48c.46.36.74.9.82 1.48l.13.94h5.84l.13-.94c.08-.58.36-1.12.82-1.48A6.4 6.4 0 0 0 12 2.6Z"/><rect x="8.7" y="17.4" width="6.6" height="1.9" rx=".95"/><rect x="9.6" y="20" width="4.8" height="1.9" rx=".95"/></svg></span></a><a class="dh-tab" href="../my-favorites/index.html" aria-label="我的收藏"><span class="dh-tab-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7 3.6h10a2.2 2.2 0 0 1 2.2 2.2v13.9c0 .86-.94 1.38-1.66.92L12 17.2l-5.54 3.42c-.72.46-1.66-.06-1.66-.92V5.8A2.2 2.2 0 0 1 7 3.6Z"/></svg></span></a><a class="dh-tab" href="../my-home/index.html" aria-label="我的家"><span class="dh-tab-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.7 3.3a2 2 0 0 1 2.6 0l6.8 5.86c.44.38.7.94.7 1.53v7.71a2 2 0 0 1-2 2h-2.8a1 1 0 0 1-1-1v-4.4a1 1 0 0 0-1-1h-2.4a1 1 0 0 0-1 1v4.4a1 1 0 0 1-1 1H6.2a2 2 0 0 1-2-2V10.7c0-.59.26-1.15.7-1.53L10.7 3.3Z"/></svg></span></a></nav>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div class="dh-home-indicator" aria-hidden="true"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="importmap">{"imports":{"three":"/vendor/three.module.js","three/addons/":"/vendor/three-addons/"}}</script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { FURNITURE_CATEGORIES, CATEGORY_PRIMITIVE, CATEGORY_DIMENSIONS, addUserAsset } from '../shared/asset-library-data.js';
+
+    const photoEmpty = document.getElementById('photoEmpty');
+    const photoPreview = document.getElementById('photoPreview');
+    const videoPreview = document.getElementById('videoPreview');
+    const photoReset = document.getElementById('photoReset');
+    const cameraInput = document.getElementById('cameraInput');
+    const galleryInput = document.getElementById('galleryInput');
+    const categoryTabs = document.getElementById('categoryTabs');
+    const generateBtn = document.getElementById('generateBtn');
+    const toast = document.getElementById('toast');
+    const serviceStatus = document.getElementById('serviceStatus');
+
+    const phases = { capture:document.getElementById('capturePhase'), gen:document.getElementById('genPhase'), result:document.getElementById('resultPhase') };
+    const genOrbit = document.getElementById('genOrbit');
+    const genTitle = document.getElementById('genTitle');
+    const genCopy = document.getElementById('genCopy');
+    const progressBar = document.getElementById('progressBar');
+    const genBack = document.getElementById('genBack');
+    const genRetry = document.getElementById('genRetry');
+    const resultList = document.getElementById('resultList');
+    const captureAgain = document.getElementById('captureAgain');
+    const toLibrary = document.getElementById('toLibrary');
+    const toMyHome = document.getElementById('toMyHome');
+
+    const DEFAULT_CATEGORY = FURNITURE_CATEGORIES[0].id; // 默认选中首个真实分类（列表首位、可见即高亮）
+    const ACTIVE_JOB_KEY = 'dreamhome.capture.active-job.v1';
+    const ACTIVE_JOB_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    const state = { categories:[DEFAULT_CATEGORY], photoUrl:null, photoFile:null, hasPhoto:false, backendReady:false, photoColor:'#9a8163', pollTimer:null, pollFailures:0, job:null, generatedAssets:[] };
+    const dracoLoader = new DRACOLoader().setDecoderPath('/vendor/three-addons/libs/draco/');
+    const generatedModelLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setDRACOLoader(dracoLoader);
+    const resultPreviewDisposers = [];
+    let toastTimer = null;
+    const showToast = (message) => { toast.textContent = message; toast.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 1600); };
+    const rgbToHex = (r, g, b) => '#' + [r, g, b].map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0')).join('');
+    const lighten = (hex, amount = .34) => { const n = parseInt(hex.slice(1), 16); const mix = (c) => Math.round(c + (255 - c) * amount); return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => mix(c).toString(16).padStart(2, '0')).join(''); };
+    function readActiveJob() {
+      try {
+        const value = JSON.parse(localStorage.getItem(ACTIVE_JOB_KEY) || 'null');
+        if (!value?.jobId || !value?.submittedAt || Date.now() - value.submittedAt > ACTIVE_JOB_MAX_AGE_MS) {
+          localStorage.removeItem(ACTIVE_JOB_KEY);
+          return null;
+        }
+        return value;
+      } catch {
+        localStorage.removeItem(ACTIVE_JOB_KEY);
+        return null;
+      }
+    }
+    function persistActiveJob(job = state.job) {
+      if (!job?.job_id) return;
+      const previous = readActiveJob();
+      localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({
+        jobId:job.job_id,
+        status:job.status || previous?.status || 'queued',
+        progress:Number(job.progress || previous?.progress || 0),
+        categoryId:state.categories[0] || previous?.categoryId || DEFAULT_CATEGORY,
+        photoColor:state.photoColor || previous?.photoColor || '#9a8163',
+        submittedAt:previous?.jobId === job.job_id ? previous.submittedAt : Date.now(),
+        updatedAt:Date.now(),
+      }));
+    }
+    function clearActiveJob() {
+      localStorage.removeItem(ACTIVE_JOB_KEY);
+      state.job = null;
+    }
+
+    // 从照片提取主色（缩到小图求均值，作生成组件配色）· 小程序侧等价 tt.canvasGetImageData
+    function extractPhotoColor(img) {
+      try {
+        const size = 24;
+        const off = document.createElement('canvas');
+        off.width = size; off.height = size;
+        const octx = off.getContext('2d');
+        octx.drawImage(img, 0, 0, size, size);
+        const data = octx.getImageData(0, 0, size, size).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 125) continue;
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; count += 1;
+        }
+        if (!count) return '#9a8163';
+        return rgbToHex(r / count, g / count, b / count);
+      } catch { return '#9a8163'; }
+    }
+
+    function setImageFile(file) {
+      if (!file) return;
+      clearActiveJob();
+      if (state.photoUrl) URL.revokeObjectURL(state.photoUrl);
+      state.photoFile = file;
+      state.photoUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { state.photoColor = extractPhotoColor(img); };
+      img.src = state.photoUrl;
+      photoPreview.src = state.photoUrl;
+      photoPreview.hidden = false;
+      videoPreview.hidden = true; videoPreview.pause(); videoPreview.removeAttribute('src');
+      photoEmpty.classList.add('is-hidden');
+      photoReset.hidden = false;
+      state.hasPhoto = true;
+      generateBtn.disabled = !state.backendReady;
+    }
+    async function onMediaChosen(file) {
+      if (!file) return;
+      if (!file.type.startsWith('video/')) { setImageFile(file); return; }
+      clearActiveJob();
+      if (state.photoUrl) URL.revokeObjectURL(state.photoUrl);
+      const sourceUrl=URL.createObjectURL(file),video=document.createElement('video');
+      video.muted=true;video.playsInline=true;video.preload='metadata';video.src=sourceUrl;
+      try {
+        await new Promise((resolve,reject)=>{video.onloadeddata=resolve;video.onerror=()=>reject(new Error('无法读取这个视频'));});
+        video.currentTime=Math.min(.2,Math.max(0,video.duration/10||0));
+        await new Promise(resolve=>{video.onseeked=resolve;setTimeout(resolve,500);});
+        const max=1280,scale=Math.min(1,max/Math.max(video.videoWidth,video.videoHeight)),canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(video.videoWidth*scale));canvas.height=Math.max(1,Math.round(video.videoHeight*scale));
+        canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+        const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));
+        if(!blob)throw new Error('无法提取视频画面');
+        state.photoFile=new File([blob],`${file.name.replace(/\.[^.]+$/,'')}-frame.jpg`,{type:'image/jpeg'});
+        state.photoColor=extractPhotoColor(canvas);state.photoUrl=sourceUrl;
+        videoPreview.src=sourceUrl;videoPreview.hidden=false;photoPreview.hidden=true;photoPreview.removeAttribute('src');
+        photoEmpty.classList.add('is-hidden');photoReset.hidden=false;state.hasPhoto=true;generateBtn.disabled=!state.backendReady;
+        showToast('已提取视频画面用于生成');
+      } catch(error) { URL.revokeObjectURL(sourceUrl);showToast(error.message||'视频读取失败'); }
+    }
+    function resetPhoto() {
+      if (state.photoUrl) URL.revokeObjectURL(state.photoUrl);
+      state.photoUrl = null; state.photoFile = null; state.hasPhoto = false;
+      photoPreview.hidden = true; photoPreview.removeAttribute('src');
+      videoPreview.hidden = true; videoPreview.pause(); videoPreview.removeAttribute('src');
+      photoEmpty.classList.remove('is-hidden');
+      photoReset.hidden = true;
+      generateBtn.disabled = true;
+      cameraInput.value = ''; galleryInput.value = '';
+    }
+    cameraInput.addEventListener('change', (event) => setImageFile(event.target.files[0]));
+    galleryInput.addEventListener('change', (event) => onMediaChosen(event.target.files[0]));
+    photoReset.addEventListener('click', resetPhoto);
+
+    // 品类控件（单选，始终保留一个）
+    categoryTabs.innerHTML = FURNITURE_CATEGORIES.map((category) => `<button class="category-tab" data-category="${category.id}" type="button" aria-pressed="${state.categories.includes(category.id)}">${category.label}</button>`).join('');
+    function syncCategoryTabs() {
+      categoryTabs.querySelectorAll('[data-category]').forEach((el) => el.setAttribute('aria-pressed', String(state.categories.includes(el.dataset.category))));
+    }
+    categoryTabs.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-category]');
+      if (!tab) return;
+      state.categories = [tab.dataset.category]; // 单选：选中即替换，始终恰好一个
+      syncCategoryTabs();
+    });
+
+    function setPhase(name) { Object.entries(phases).forEach(([key, el]) => el.classList.toggle('is-active', key === name)); }
+
+    // ---- 拍照 → 3D：正式后端异步任务 ----
+    // 公网始终走 Vercel 同源代理，避免浏览器直连 ECS 的 mixed-content/CORS
+    // 问题；本地开发则连接本地 FastAPI。
+    const API_BASE = ['127.0.0.1', 'localhost'].includes(location.hostname)
+      ? 'http://127.0.0.1:8000'
+      : '/dreamhome-api';
+    const STATUS_MAP = { queued:'queued', running:'processing', succeeded:'ready', failed:'failed' };
+    const categoryLabel = (id) => (FURNITURE_CATEGORIES.find((item) => item.id === id) || {}).label || id;
+    async function checkBackend() {
+      serviceStatus.dataset.state = 'checking';
+      serviceStatus.textContent = '连接 3D 服务';
+      try {
+        const response = await fetch(`${API_BASE}/api/health`, { cache:'no-store' });
+        if (!response.ok) throw new Error(`health ${response.status}`);
+        const health = await response.json();
+        const capabilities = health.capabilities || {};
+        const ready = health.consumer_contract === 'dreamhome-consumer-v1'
+          && capabilities.gen3d?.ready === true
+          && capabilities.completion?.ready === true
+          && capabilities.single_object_check?.ready === true
+          && capabilities.identity_check?.ready === true
+          && capabilities.material_postprocess?.ready === true;
+        if (!ready) throw new Error('pipeline not ready');
+        state.backendReady = true;
+        serviceStatus.dataset.state = 'ready';
+        serviceStatus.textContent = '3D 服务已连接';
+      } catch {
+        state.backendReady = false;
+        serviceStatus.dataset.state = 'failed';
+        serviceStatus.textContent = '3D 服务暂不可用';
+      }
+      generateBtn.disabled = !state.hasPhoto || !state.backendReady;
+    }
+    checkBackend();
+    window.addEventListener('focus', checkBackend);
+    async function submitPhoto() {
+      if (!state.photoFile) throw new Error('请先重新选择照片');
+      const form = new FormData();
+      form.append('file', state.photoFile, state.photoFile.name || 'photo.jpg');
+      form.append('texture', 'true');
+      form.append('meta', JSON.stringify({ category:categoryLabel(state.categories[0]) }));
+      const response = await fetch(`${API_BASE}/api/photo-to-3d`, { method:'POST', body:form });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        throw new Error(detail?.detail || detail?.error || `提交失败（${response.status}）`);
+      }
+      return response.json();
+    }
+    async function fetchJob(jobId) {
+      const response = await fetch(`${API_BASE}/api/jobs/${encodeURIComponent(jobId)}`, { cache:'no-store' });
+      if (!response.ok) {
+        const error = new Error(`读取生成进度失败（${response.status}）`);
+        error.status = response.status;
+        throw error;
+      }
+      return response.json();
+    }
+    const GEN_COPY = {
+      queued:['正在识别照片','包工球正在看你拍的家居照片'],
+      processing:['正在提取家具','从照片里认出家具并生成 3D 组件'],
+      ready:['组件已就绪','正在整理你的新组件'],
+      failed:['生成没有完成',''],
+    };
+    function updateGen(status, progress, error = '') {
+      const copy = GEN_COPY[status] || GEN_COPY.queued;
+      genOrbit.dataset.status = status === 'ready' ? 'processing' : status;
+      genTitle.textContent = copy[0];
+      genCopy.textContent = status === 'failed' ? (error || '请检查照片或重新尝试') : copy[1];
+      progressBar.style.width = `${progress}%`;
+      genRetry.hidden = status !== 'failed';
+    }
+
+    function buildAssetFromJob(job, modelDimensions) {
+      const categoryId = state.categories[0];
+      const category = FURNITURE_CATEGORIES.find((item) => item.id === categoryId);
+      const dimensions = Array.isArray(job.estimated_size_m) && job.estimated_size_m.length === 3
+        ? job.estimated_size_m.map(Number)
+        : (() => {
+            const fallback = CATEGORY_DIMENSIONS[categoryId] || [1, .8, .6];
+            const longest = Math.max(...modelDimensions);
+            const targetLongest = Math.max(...fallback);
+            return longest > 0
+              ? modelDimensions.map((value) => value / longest * targetLongest)
+              : fallback;
+          })();
+      const modelUrl = /^https?:/i.test(job.model_url || '')
+        ? job.model_url
+        : `${API_BASE}${job.model_url || ''}`;
+      return {
+        id:`capture-${categoryId}-${job.job_id || Date.now()}`,
+        kind:'furniture',
+        name:`拍摄·${category.label}`,
+        category:categoryId,
+        primitive:CATEGORY_PRIMITIVE[categoryId] || 'cabinet',
+        color:state.photoColor,
+        accent:lighten(state.photoColor, .3),
+        dimensions,
+        sizePrior:{ w:dimensions[0], h:dimensions[1], d:dimensions[2] },
+        sizePriorVersion:2,
+        modelUrl,
+        rawModel:true,
+        modelValidated:true,
+        canonicalStatus:'raw_succeeded',
+        libraryAttached:false,
+        thumbnail:null,
+        backendCategory:job.category || null,
+        style:job.style || null,
+        material:job.material || null,
+        source:'user',
+        sourceType:'capture',
+        sourceUrl:null,
+        createdAt:new Date().toISOString(),
+      };
+    }
+
+    async function loadVerifiedGeneratedModel(modelUrl) {
+      if (!modelUrl) throw new Error('生成结果缺少 3D 文件地址');
+      const response = await fetch(modelUrl, { cache:'no-store' });
+      if (!response.ok) throw new Error(`3D 文件读取失败（${response.status}）`);
+      const contentType = response.headers.get('content-type') || '';
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength < 1024) throw new Error('生成的 3D 文件不完整');
+      const magic = new TextDecoder().decode(new Uint8Array(buffer, 0, 4));
+      if (magic !== 'glTF' && !contentType.includes('model/gltf')) throw new Error('生成结果不是有效 GLB');
+      const gltf = await new Promise((resolve, reject) => {
+        generatedModelLoader.parse(buffer, new URL('.', modelUrl).href, resolve, reject);
+      });
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      const size = box.getSize(new THREE.Vector3());
+      if (![size.x, size.y, size.z].every((value) => Number.isFinite(value) && value > .0001)) {
+        throw new Error('生成的 3D 模型没有有效几何');
+      }
+      return { gltf, dimensions:[size.x, size.y, size.z] };
+    }
+
+    function disposeResultPreviews() {
+      while (resultPreviewDisposers.length) resultPreviewDisposers.pop()();
+    }
+
+    function mountResultModel(canvas, sourceScene, name) {
+      const scene = new THREE.Scene();
+      const model = sourceScene.clone(true);
+      const originalBox = new THREE.Box3().setFromObject(model);
+      const center = originalBox.getCenter(new THREE.Vector3());
+      const size = originalBox.getSize(new THREE.Vector3());
+      model.position.set(-center.x, -originalBox.min.y, -center.z);
+      scene.add(model);
+      scene.add(new THREE.HemisphereLight('#fff8e8', '#8f806d', 2.25));
+      const key = new THREE.DirectionalLight('#fff2d8', 3.2);
+      key.position.set(3, 5, 4);
+      scene.add(key);
+      const width = Math.max(canvas.clientWidth, 84);
+      const height = Math.max(canvas.clientHeight, 84);
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height, false);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.08;
+      const camera = new THREE.PerspectiveCamera(32, width / height, .01, 100);
+      const radius = Math.max(size.x, size.y, size.z);
+      camera.position.set(radius * 1.7, radius * 1.15, radius * 2.1);
+      const controls = new OrbitControls(camera, canvas);
+      controls.enablePan = false;
+      controls.enableZoom = true;
+      controls.minDistance = radius * 1.35;
+      controls.maxDistance = radius * 4;
+      controls.target.set(0, size.y * .48, 0);
+      const render = () => renderer.render(scene, camera);
+      controls.addEventListener('change', render);
+      controls.update();
+      render();
+      canvas.setAttribute('aria-label', `${name} 的真实 3D，可拖动旋转`);
+      resultPreviewDisposers.push(() => {
+        controls.dispose();
+        renderer.dispose();
+      });
+    }
+
+    async function pollJob() {
+      clearTimeout(state.pollTimer);
+      try {
+        const job = await fetchJob(state.job.job_id);
+        state.job = job;
+        persistActiveJob(job);
+        state.pollFailures = 0;
+        const uiStatus = STATUS_MAP[job.status] || 'queued';
+        updateGen(uiStatus, job.progress || 0, job.error);
+        if (job.status === 'queued' && job.queue_position > 0) {
+          genCopy.textContent = job.queue_position === 1
+            ? '任务已保存，正在等待当前组件生成完成'
+            : `任务已保存，前面还有 ${job.queue_position - 1} 个生成任务`;
+        }
+        if (job.status === 'succeeded') { finishGeneration(job); return; }
+        if (job.status === 'failed') return;
+        state.pollTimer = setTimeout(pollJob, 1600);
+      } catch (error) {
+        const transient = !error.status || error.status === 408 || error.status === 429 || error.status >= 500;
+        if (transient && state.pollFailures < 20) {
+          state.pollFailures += 1;
+          genTitle.textContent = '仍在后台生成';
+          genCopy.textContent = '网络暂时波动，正在自动恢复进度';
+          state.pollTimer = setTimeout(pollJob, Math.min(8000, 1600 + state.pollFailures * 400));
+          return;
+        }
+        if (error.status === 404) clearActiveJob();
+        updateGen('failed', 0, error.message || '后端暂时不可用，请稍后重试');
+      }
+    }
+    async function startGeneration() {
+      setPhase('gen');
+      updateGen('queued', 6);
+      genRetry.hidden = true;
+      state.pollFailures = 0;
+      try {
+        state.job = await submitPhoto();
+        persistActiveJob(state.job);
+        state.pollTimer = setTimeout(pollJob, 900);
+      } catch (error) {
+        updateGen('failed', 0, error.message || '3D 服务提交失败，请稍后重试');
+      }
+    }
+    async function finishGeneration(job) {
+      state.job = job;
+      persistActiveJob(job);
+      setPhase('gen');
+      genTitle.textContent = '正在验证真实 3D';
+      genCopy.textContent = '确认模型、纹理和比例可正常加载';
+      progressBar.style.width = '100%';
+      try {
+        const modelUrl = /^https?:/i.test(job.model_url || '')
+          ? job.model_url
+          : `${API_BASE}${job.model_url || ''}`;
+        const verified = await loadVerifiedGeneratedModel(modelUrl);
+        const asset = buildAssetFromJob(job, verified.dimensions);
+        state.generatedAssets = [asset];
+        addUserAsset(asset);
+        toMyHome.href = `../my-home/index.html?addAsset=${encodeURIComponent(asset.id)}`;
+        renderResult([asset], verified.gltf);
+        setPhase('result');
+        showToast('真实 3D 已验证并保存到本机收藏');
+      } catch (error) {
+        updateGen('failed', 100, error.message || '真实 3D 无法加载，请重新生成');
+      }
+    }
+    function restoreActiveGeneration() {
+      const active = readActiveJob();
+      if (!active) return false;
+      if (FURNITURE_CATEGORIES.some((item) => item.id === active.categoryId)) {
+        state.categories = [active.categoryId];
+        syncCategoryTabs();
+      }
+      state.photoColor = active.photoColor || state.photoColor;
+      state.job = { job_id:active.jobId, status:active.status, progress:active.progress };
+      state.pollFailures = 0;
+      setPhase('gen');
+      updateGen(STATUS_MAP[active.status] || 'queued', active.progress || 6);
+      if (active.status === 'succeeded') {
+        genTitle.textContent = '正在恢复生成结果';
+        genCopy.textContent = '组件已经生成，正在重新载入';
+      } else {
+        genTitle.textContent = active.status === 'failed' ? '正在确认任务状态' : '仍在后台生成';
+        genCopy.textContent = '已恢复上次任务，正在同步最新进度';
+      }
+      pollJob();
+      return true;
+    }
+    function renderResult(assets, gltf) {
+      disposeResultPreviews();
+      resultList.innerHTML = assets.map((asset) => {
+        const category = FURNITURE_CATEGORIES.find((item) => item.id === asset.category);
+        return `<div class="result-item"><div class="result-visual"><canvas class="result-model-viewer" data-model-preview="${asset.id}"></canvas><span class="result-model-hint">拖动查看</span></div><div class="result-body"><input class="result-name" maxlength="16" value="${asset.name}" data-name="${asset.id}" aria-label="组件名称" /><p class="result-meta">家具类 · ${category.label} · 真实 GLB · 本机收藏</p></div></div>`;
+      }).join('');
+      const canvas = resultList.querySelector('[data-model-preview]');
+      if (canvas && gltf?.scene) mountResultModel(canvas, gltf.scene, assets[0].name);
+    }
+
+    // 名称编辑：写回已入库的用户资产（同 id 覆盖）
+    resultList.addEventListener('change', (event) => {
+      const input = event.target.closest('[data-name]');
+      if (!input) return;
+      const asset = state.generatedAssets.find((item) => item.id === input.dataset.name);
+      if (!asset) return;
+      asset.name = input.value.trim() || asset.name; input.value = asset.name;
+      addUserAsset(asset);
+    });
+
+    // 前进按钮只负责跳转（已入库）；查看我的收藏直达首个组件所属细分标签全部页
+    generateBtn.addEventListener('click', () => { if (state.hasPhoto) startGeneration(); });
+    genBack.addEventListener('click', () => { clearTimeout(state.pollTimer); setPhase('capture'); });
+    genRetry.addEventListener('click', () => {
+      if (state.photoFile) {
+        startGeneration();
+        return;
+      }
+      clearActiveJob();
+      resetPhoto();
+      setPhase('capture');
+      showToast('请重新选择照片后生成');
+    });
+    toLibrary.addEventListener('click', (event) => {
+      event.preventDefault();
+      location.href = `../my-favorites/index.html#catalog=furniture:${encodeURIComponent(state.generatedAssets[0].category)}`;
+    });
+    captureAgain.addEventListener('click', () => { disposeResultPreviews(); clearActiveJob(); resetPhoto(); setPhase('capture'); });
+    window.addEventListener('pagehide', () => persistActiveJob());
+    window.addEventListener('pagehide', disposeResultPreviews);
+    restoreActiveGeneration();
+  </script>
+</body>
+</html>
