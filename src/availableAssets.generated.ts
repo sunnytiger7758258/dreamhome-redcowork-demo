@@ -6298,9 +6298,18 @@ const ALL_AVAILABLE_ASSETS: LibraryComponent[] = [
   }
 ]
 
-// 每条保留视频只公开一个已经落库的对应家居组件。
+// REDcowork 的静态资源容量有限：鸡蛋灌饼的 7 件全部保留，另一条视频精选 15 件。
+// 这里使用明确名单，后续可按平台额度直接增减而不改变页面逻辑。
+const REDCOWORK_FEATURED_ASSET_IDS = new Set([
+  'ast_00e00df1bfeb', 'ast_09f5ed9678b1', 'ast_45226bd63340', 'ast_8926f9413f29',
+  'ast_b80193251739', 'ast_b80f4e4a387b', 'ast_ccc6f7405f39',
+  'ast_d8f0d7606d01', 'ast_5994f5b4f77c', 'ast_49b16f2d03ab', 'ast_55d33aa2ab71',
+  'ast_d83b2f2061bc', 'ast_ae6d83d34fba', 'ast_8ac797d254fe', 'ast_c26b4f2fe8b3',
+  'ast_ed2d44e09f94', 'ast_696c30f84af4', 'ast_d60dbc13017f', 'ast_b3479a4b5400',
+  'ast_fba5d6140749', 'ast_390a0d12583c', 'ast_2044e3063585',
+])
 export const AVAILABLE_ASSETS = ALL_AVAILABLE_ASSETS.filter((asset) => (
-  asset.id === 'ast_00e00df1bfeb' || asset.id === 'ast_2044e3063585'
+  REDCOWORK_FEATURED_ASSET_IDS.has(asset.id)
 ))
 
 // The generated catalog keeps backend-facing `/asset-cdn/...` provenance,

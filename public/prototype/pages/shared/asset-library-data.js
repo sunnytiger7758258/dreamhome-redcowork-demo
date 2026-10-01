@@ -9,7 +9,14 @@ export const DEFAULT_FAVORITE_IDS = [
   'ast_2044e3063585',
 ];
 
-const REDCOWORK_FURNITURE_IDS = new Set(DEFAULT_FAVORITE_IDS);
+const REDCOWORK_FURNITURE_IDS = new Set([
+  'ast_00e00df1bfeb', 'ast_09f5ed9678b1', 'ast_45226bd63340', 'ast_8926f9413f29',
+  'ast_b80193251739', 'ast_b80f4e4a387b', 'ast_ccc6f7405f39',
+  'ast_d8f0d7606d01', 'ast_5994f5b4f77c', 'ast_49b16f2d03ab', 'ast_55d33aa2ab71',
+  'ast_d83b2f2061bc', 'ast_ae6d83d34fba', 'ast_8ac797d254fe', 'ast_c26b4f2fe8b3',
+  'ast_ed2d44e09f94', 'ast_696c30f84af4', 'ast_d60dbc13017f', 'ast_b3479a4b5400',
+  'ast_fba5d6140749', 'ast_390a0d12583c', 'ast_2044e3063585',
+]);
 
 export const COMPONENT_FAMILIES = [
   { id: 'floorplan', label: '户型类' },

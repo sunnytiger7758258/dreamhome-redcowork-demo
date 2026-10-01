@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { AVAILABLE_ASSETS } from './availableAssets.generated'
+import { AVAILABLE_ASSETS, AVAILABLE_ASSETS_BY_VIDEO } from './availableAssets.generated'
 import { assetsForVideoFrame, detectedFurnitureForVideoFrame } from './availableAssets.generated'
 import { FEED_VIDEOS } from './types'
 
 describe('reviewed asset delivery paths', () => {
   it('maps every canonical asset to the bundled prototype media', () => {
-    expect(AVAILABLE_ASSETS).toHaveLength(2)
+    expect(AVAILABLE_ASSETS).toHaveLength(22)
 
     for (const asset of AVAILABLE_ASSETS) {
       expect(asset.sticker).toBe(`/prototype/assets/library/${asset.id}.jpg`)
@@ -16,7 +16,14 @@ describe('reviewed asset delivery paths', () => {
     }
   })
 
-  it('links one reviewed component to each retained video', () => {
+  it('links every reviewed component to one of the two retained videos', () => {
+    expect(AVAILABLE_ASSETS_BY_VIDEO.vid_40734d7f2e6c).toHaveLength(7)
+    expect(AVAILABLE_ASSETS_BY_VIDEO.vid_5c7efd168eb7).toHaveLength(15)
+    expect(AVAILABLE_ASSETS.every((asset) => (
+      asset.sourceVideo?.videoId === 'vid_40734d7f2e6c'
+      || asset.sourceVideo?.videoId === 'vid_5c7efd168eb7'
+    ))).toBe(true)
+
     const chair = assetsForVideoFrame('vid_40734d7f2e6c', 0)
     const table = assetsForVideoFrame('vid_5c7efd168eb7', 118.5)
     expect(detectedFurnitureForVideoFrame('vid_40734d7f2e6c', 0, chair)).toContain('办公椅')
