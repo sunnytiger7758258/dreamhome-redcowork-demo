@@ -332,29 +332,7 @@
           }, undefined, () => resolve(false));
         });
       }
-      // 用户生成家具：primitive 占位几何
-      const group = buildFurniture(THREE, asset);
-      new THREE.Box3().setFromObject(group).getCenter(group.position).multiplyScalar(-1);
-      group.position.y += 0.02; scene.add(group);
-      tick();
-      return true;
-    }
-    // 家具几何：移植自 my-home createAssetGroup，按 primitive/color/accent 拼装
-    function buildFurniture(THREE, asset) {
-      const group = new THREE.Group();
-      const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.72 });
-      const wood = mat(asset.accent || '#a27b5b'); const dark = mat('#59645b');
-      const box = (w, h, d, x, y, z, m = wood) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); mesh.position.set(x, y, z); group.add(mesh); };
-      const cyl = (r1, r2, h, x, y, z, m = wood) => { const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, 18), m); mesh.position.set(x, y, z); group.add(mesh); };
-      const p = asset.primitive || '';
-      if (p === 'chair') { box(.72, .16, .68, 0, .52, 0); box(.7, .72, .15, 0, .93, .26, mat(asset.color || '#d7a98b')); [-.27, .27].forEach((x) => [-.22, .22].forEach((z) => box(.07, .5, .07, x, .25, z, dark))); }
-      else if (p === 'sofa') { box(1.6, .28, .72, 0, .48, 0); box(1.55, .6, .18, 0, .83, .27, mat(asset.color || '#d7a98b')); box(.18, .5, .7, -.71, .68, 0, mat(asset.color || '#c18b78')); box(.18, .5, .7, .71, .68, 0, mat(asset.color || '#c18b78')); }
-      else if (p === 'lamp') { cyl(.24, .3, .07, 0, .04, 0, dark); cyl(.035, .035, 1.1, 0, .58, 0, dark); cyl(.31, .2, .32, 0, 1.28, 0, mat(asset.color || '#efd981')); }
-      else if (p === 'cabinet') { box(.95, 1.28, .32, 0, .64, 0, wood); [-.37, 0, .37].forEach((y) => box(.82, .05, .35, 0, y + .28, 0, dark)); }
-      else if (p === 'table') { cyl(.6, .6, .09, 0, .64, 0, wood); [-.36, .36].forEach((x) => [-.36, .36].forEach((z) => box(.08, .58, .08, x, .29, z, dark))); }
-      else if (p === 'bed') { box(1.35, .3, 1.7, 0, .32, 0, wood); box(1.28, .17, 1.45, 0, .56, -.08, mat(asset.color || '#e2ddd0')); box(1.35, .48, .12, 0, .55, .78, dark); }
-      else { cyl(.22, .3, .32, 0, .16, 0, mat('#af8061')); [-.2, 0, .2].forEach((x, i) => { const leaf = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 8), mat(i === 1 ? '#6f916b' : '#86a87d')); leaf.scale.set(.65, 1.45, .4); leaf.position.set(x, .65 + (i % 2) * .16, 0); leaf.rotation.z = x * 1.5; group.add(leaf); }); }
-      return group;
+      return false;
     }
     // 让名称输入框贴合文字宽度（含中文），🔗 随名字长度自由跟随
     const fitViewerName = () => {
@@ -371,7 +349,7 @@
       if (!asset) return;
       viewerAssetId = id;
       const editable = isUser(asset);
-      const use3D = (isUser(asset) && asset.kind === 'furniture') || !!asset.modelUrl; // 用户生成→primitive 占位；平台真实资产→真实 GLB
+      const use3D = !!asset.modelUrl;
       viewerName.value = asset.name;
       viewerName.readOnly = !editable;
       viewerDelete.hidden = !editable;

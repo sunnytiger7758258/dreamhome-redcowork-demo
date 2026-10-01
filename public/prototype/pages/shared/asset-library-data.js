@@ -36,7 +36,7 @@ export const FURNITURE_CATEGORIES = (() => {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => ({ id, label: id }));
 })();
 
-// 真实分类 → CSS/3D 占位 primitive（真实卡片用照片；primitive 仅用于 3D 占位几何与「我的家」抽屉剪影）
+// 真实分类 → 抽屉剪影类型（仅用于二维 CSS 图标，不生成 3D 家具）。
 export const CATEGORY_PRIMITIVE = {
   灯具: 'lamp', 柜子: 'cabinet', 绿植: 'plant', 桌子: 'table', 单椅: 'chair',
   装饰: 'plant', 地毯: 'cabinet', 沙发: 'sofa', 家电: 'cabinet', 床: 'bed', 卫浴: 'cabinet',
@@ -46,7 +46,7 @@ export const CATEGORY_DIMENSIONS = {
   灯具: [.4, 1.4, .4], 柜子: [1.0, 1.2, .45], 绿植: [.4, .7, .4], 桌子: [1.2, .75, .7], 单椅: [.55, .9, .55],
   装饰: [.3, .4, .3], 地毯: [1.6, .02, 2.2], 沙发: [1.9, .82, .9], 家电: [.6, 1.0, .6], 床: [1.6, .5, 2.0], 卫浴: [.6, .8, .5],
 };
-// 常见中文色名 → hex（供 3D 占位着色；缺省暖木色）
+// 常见中文色名 → hex（供二维资产卡与元数据使用；缺省暖木色）
 const COLOR_HEX = {
   白色: '#e7e0d3', 米白色: '#e9e0cb', 米白: '#e9e0cb', 米色: '#ddceb0',
   棕色: '#8d5a3a', 深棕色: '#6b4632', 深褐色: '#5f4230', 黑色: '#3b3833',
@@ -190,6 +190,14 @@ export function getAsset(id) {
   return ASSET_BY_ID.get(id) || userAssetById(id);
 }
 
+function isAllowedFavorite(id, userIds) {
+  if (userIds.has(id)) return true;
+  const asset = ASSET_BY_ID.get(id);
+  if (!asset) return false;
+  // 家具仍受 REDcowork 精简清单约束；户型、地板和墙纸必须能够正常收藏。
+  return asset.kind !== 'furniture' || REDCOWORK_FURNITURE_IDS.has(id);
+}
+
 export function getFavorites() {
   try {
     const raw = localStorage.getItem(FAVORITES_KEY);
@@ -202,7 +210,7 @@ export function getFavorites() {
       localStorage.setItem(FAVORITES_MIGRATION_KEY, '1');
     }
     const userIds = new Set(getUserAssets().map((item) => item.id));
-    return new Set(ids.filter((id) => REDCOWORK_FURNITURE_IDS.has(id) || userIds.has(id)));
+    return new Set(ids.filter((id) => isAllowedFavorite(id, userIds)));
   } catch {
     return new Set();
   }
@@ -210,7 +218,7 @@ export function getFavorites() {
 
 export function setFavorites(ids) {
   const userIds = new Set(getUserAssets().map((item) => item.id));
-  const known = [...new Set(ids)].filter((id) => REDCOWORK_FURNITURE_IDS.has(id) || userIds.has(id));
+  const known = [...new Set(ids)].filter((id) => isAllowedFavorite(id, userIds));
   localStorage.setItem(FAVORITES_KEY, JSON.stringify({ version: 2, ids: known }));
   localStorage.setItem(FAVORITES_MIGRATION_KEY, '1');
   return new Set(known);

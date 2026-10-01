@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { getAsset } from './asset-library-data.js';
 
 const SPECS = {
   'wide-living': { width:9, depth:5.5, shape:'rect', windows:['back-floor'] },
@@ -7,7 +6,7 @@ const SPECS = {
   'square-lounge': { width:6.5, depth:6.5, shape:'rect', windows:['back','left'] },
   'l-living': { width:8, depth:7, shape:'l', windows:['back-large'] },
   'bay-bedroom': { width:6, depth:5, shape:'rect', windows:['back-bay'] },
-  'corner-bedroom': { width:7, depth:5, shape:'rect', windows:['back','left'] },
+  'standard-bedroom': { width:7, depth:5, shape:'rect', windows:['back','left'] },
 };
 const FALLBACKS=Object.fromEntries(Object.keys(SPECS).map(id=>[id,new URL(`../../assets/scenes/templates/${id==='standard-bedroom'?'corner-bedroom':id}.png`,import.meta.url).href]));
 
@@ -47,8 +46,9 @@ function addWindow(group, side, spec, materials, kind = 'standard') {
   const bayWindow = kind === 'bay';
   const largeWindow = kind === 'large';
   const width = floorWindow ? Math.min(5.7, spec.width * .72) : largeWindow ? Math.min(3.8, spec.width * .55) : Math.min(2.45, spec.width * .42);
-  const height = floorWindow ? 2.48 : largeWindow ? 2.08 : 1.55;
   const sill = floorWindow ? .08 : largeWindow ? .38 : bayWindow ? .7 : .82;
+  const wallHeight = spec.height ?? 2.8;
+  const height = Math.max(.6, Math.min(floorWindow ? 2.48 : largeWindow ? 2.08 : 1.55, wallHeight - .12 - sill));
   const y = sill + height / 2;
   const frameDepth = .11;
   const frame = new THREE.Group();
@@ -82,19 +82,6 @@ function createFloor(spec, material) {
   return floor;
 }
 
-function addProjectPlacement(group, placement) {
-  const asset=getAsset(placement.assetId)||{},primitive=asset.primitive||'plant',dimensions=asset.dimensions||[.7,.7,.7],color=asset.color||asset.accent||'#b89b79';
-  const item=new THREE.Group(),material=new THREE.MeshStandardMaterial({color,roughness:.72}),accent=new THREE.MeshStandardMaterial({color:asset.accent||'#e2d1ba',roughness:.84}),[w,h,d]=dimensions;
-  if(primitive==='table'){addBox(item,[w,.1,d],[0,h-.05,0],material);[-1,1].forEach(x=>[-1,1].forEach(z=>addBox(item,[.07,h-.1,.07],[x*w*.38,(h-.1)/2,z*d*.38],accent)));}
-  else if(primitive==='chair'){addBox(item,[w,.14,d],[0,h*.48,0],material);addBox(item,[w,.5,.1],[0,h*.72,d*.42],accent);}
-  else if(primitive==='sofa'){addBox(item,[w,h*.48,d],[0,h*.24,0],material);addBox(item,[w*.92,h*.48,d*.2],[0,h*.66,d*.38],accent);}
-  else if(primitive==='bed'){addBox(item,[w,h*.38,d],[0,h*.19,0],material);addBox(item,[w*.94,h*.24,d*.86],[0,h*.48,-d*.04],accent);}
-  else if(primitive==='cabinet'){addBox(item,[w,h,d],[0,h/2,0],material);}
-  else if(primitive==='lamp'){addBox(item,[w*.5,.08,d*.5],[0,.04,0],material);addBox(item,[.06,h*.72,.06],[0,h*.4,0],accent);addBox(item,[w,h*.25,d],[0,h*.84,0],material);}
-  else {addBox(item,[w*.55,h*.32,d*.55],[0,h*.16,0],accent);const crown=new THREE.Mesh(new THREE.SphereGeometry(Math.max(w,d)*.42,10,7),material);crown.scale.y=Math.max(1,h/Math.max(w,d)*.72);crown.position.y=h*.68;item.add(crown);}
-  const position=placement.position||{},rotation=placement.rotation||{},scale=placement.scale||{};item.position.set(position.x||0,position.y||0,position.z||0);item.rotation.set(rotation.x||0,rotation.y||0,rotation.z||0);item.scale.set(scale.x||1,scale.y||1,scale.z||1);group.add(item);
-}
-
 export async function renderTemplatePreview(canvas, templateId, project=null) {
   if (!canvas || active.has(canvas)) return;
   const spec = SPECS[templateId];
@@ -125,11 +112,7 @@ export async function renderTemplatePreview(canvas, templateId, project=null) {
   addBox(group,[.24,.12,spec.depth],[-spec.width/2+.05,h-.06,0],trimMat);
   const materials={view:viewMat,frame:frameMat,cushion:cushionMat};
   spec.windows.forEach((entry)=>{const [side,kind='standard']=entry.split('-');addWindow(group,side,spec,materials,kind);});
-  if(project?.placements?.length)project.placements.forEach(placement=>addProjectPlacement(group,placement));
-  else if(spec.furnished==='bed'){
-    const bed=new THREE.Group(),wood=new THREE.MeshStandardMaterial({color:'#8c725c',roughness:.72}),linen=new THREE.MeshStandardMaterial({color:'#e8ded0',roughness:.92});
-    addBox(bed,[1.8,.28,2.05],[0,.2,0],wood);addBox(bed,[1.68,.18,1.78],[0,.43,-.05],linen);addBox(bed,[1.8,.62,.12],[0,.42,.97],wood);bed.position.set(.65,0,.35);bed.castShadow=true;group.add(bed);
-  }
+  // 模板缩略图只展示真实房间结构，不再用基础几何体伪造家具模型。
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({color:'#765f48',opacity:.13}));ground.rotation.x=-Math.PI/2;ground.position.y=-.13;ground.receiveShadow=true;scene.add(ground);
   const draw=()=>{renderer.render(scene,camera);if(!runtime.cancelled)canvas.style.backgroundImage=`url("${renderCanvas.toDataURL('image/webp',.86)}")`;};draw();
   let cleaned=false;const cleanup=()=>{if(cleaned)return;cleaned=true;scene.traverse((object)=>{if(object.isMesh){object.geometry?.dispose();if(Array.isArray(object.material))object.material.forEach(material=>material?.dispose());else object.material?.dispose();}});renderer.dispose();renderer.forceContextLoss?.();};
@@ -141,6 +124,55 @@ export async function renderTemplatePreview(canvas, templateId, project=null) {
     draw();
   }
   cleanup();runtime.cleanup=null;
+}
+
+function liveSpec(templateId, room) {
+  const base = SPECS[templateId];
+  if (!base) return null;
+  return { ...base, shape:'rect', width:room.w, depth:room.d, height:room.h };
+}
+
+function liveMaterials() {
+  return {
+    floor:new THREE.MeshStandardMaterial({color:'#c69a67',roughness:.62}),
+    wall:new THREE.MeshStandardMaterial({color:'#f2ede3',roughness:.92,side:THREE.DoubleSide}),
+    trim:new THREE.MeshStandardMaterial({color:'#faf7f0',roughness:.8}),
+    frame:new THREE.MeshStandardMaterial({color:'#29343a',roughness:.32,metalness:.28}),
+    view:new THREE.MeshBasicMaterial({color:'#b9d1df',side:THREE.DoubleSide}),
+    cushion:new THREE.MeshStandardMaterial({color:'#eee6d8',roughness:.88}),
+  };
+}
+
+function buildLiveRoom(spec, materials) {
+  const group = new THREE.Group();
+  const floor = createFloor(spec, materials.floor); floor.receiveShadow = true; group.add(floor);
+  const h = spec.height, t = .13;
+  addBox(group,[spec.width,h,t],[0,h/2,-spec.depth/2],materials.wall);
+  addBox(group,[t,h,spec.depth],[-spec.width/2,h/2,0],materials.wall);
+  addBox(group,[spec.width,.12,.24],[0,h-.06,-spec.depth/2+.05],materials.trim);
+  addBox(group,[.24,.12,spec.depth],[-spec.width/2+.05,h-.06,0],materials.trim);
+  spec.windows.forEach((entry) => { const [side,kind='standard'] = entry.split('-'); addWindow(group,side,spec,materials,kind); });
+  return group;
+}
+
+function disposeGeometry(root) { root?.traverse((object) => { if (object.isMesh) object.geometry?.dispose(); }); }
+
+export function createLivePreview(canvas, templateId, room) {
+  const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#f6f1e7');
+  const camera = new THREE.OrthographicCamera(-10.08,10.08,6.72,-6.72,.1,60); camera.position.set(10.92,9.24,12.6); camera.lookAt(0,.62,0);
+  scene.add(new THREE.HemisphereLight('#fff9ec','#8b765e',1.55));
+  const sun = new THREE.DirectionalLight('#fff1d5',3.4); sun.position.set(-5,9,7); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({color:'#765f48',opacity:.13})); ground.rotation.x=-Math.PI/2; ground.position.y=-.13; ground.receiveShadow=true; scene.add(ground);
+  const materials = liveMaterials(); let group = null, frame = 0, queued = null, disposed = false;
+  const resize = () => renderer.setSize(Math.max(120,canvas.clientWidth||280),Math.max(120,canvas.clientHeight||240),false);
+  const apply = (next,nextId=templateId) => { const spec=liveSpec(nextId,next); if(!spec||disposed)return; if(group){scene.remove(group);disposeGeometry(group);} group=buildLiveRoom(spec,materials);scene.add(group);resize();renderer.render(scene,camera); };
+  const update = (next,nextId) => { queued={next,nextId};if(frame||disposed)return;frame=requestAnimationFrame(()=>{frame=0;const job=queued;queued=null;if(job)apply(job.next,job.nextId);}); };
+  apply(room,templateId);
+  Promise.all([floorTexture(),viewTexture()]).then(([wood,landscape])=>{if(disposed)return;if(wood){materials.floor.map=wood;materials.floor.color.set('#fff');materials.floor.needsUpdate=true;}if(landscape){materials.view.map=landscape;materials.view.color.set('#fff');materials.view.needsUpdate=true;}renderer.render(scene,camera);});
+  const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(()=>{resize();renderer.render(scene,camera);}) : null; observer?.observe(canvas);
+  return { update, dispose(){if(disposed)return;disposed=true;if(frame)cancelAnimationFrame(frame);observer?.disconnect();disposeGeometry(group);Object.values(materials).forEach((material)=>material.dispose());ground.geometry.dispose();ground.material.dispose();renderer.dispose();renderer.forceContextLoss?.();} };
 }
 
 export async function renderTemplatePreviews(root=document, projects=[]) {
