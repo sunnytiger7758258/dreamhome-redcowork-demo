@@ -1,0 +1,235 @@
+import { genSticker } from './stickerGen'
+
+export type FeedState = 'browse' | 'pause' | 'session' | 'confirm' | 'preview'
+
+export type MascotState = 'sleeping' | 'happy' | 'working'
+
+export interface CraftJob {
+  id: string
+  name: string
+  category: FurnitureCategory
+  snapshot: string
+  color: string
+  status: 'ordering' | 'crafting' | 'waiting' | 'done' | 'failed'
+  progress?: number
+  stage?: string
+  error?: string
+  backendJobId?: string
+  backendMode?: 'fal' | 'local-fallback' | 'retry' | 'waiting' | 'unavailable'
+  sourceSelectionId?: string
+  resultComponent?: LibraryComponent
+}
+
+export interface CraftBatch {
+  id: string
+  jobs: CraftJob[]
+  publicComponents: LibraryComponent[]
+  createdAt: number
+  sourceFrame: {
+    videoId: string
+    time: number
+  }
+  notified: boolean
+  notifiedAt?: number
+  dismissed: boolean
+}
+
+export interface SelectedObject {
+  id: string
+  box: { x: number; y: number; w: number; h: number }
+  items: { label: string; thumbnail: string }[]
+  snapshot: string
+  source: 'public' | 'custom'
+  publicAssetId?: string
+}
+
+export interface TraceEntry {
+  id: string
+  ts: number
+  path: { x: number; y: number }[]
+  bbox: { x: number; y: number; w: number; h: number }
+  bboxDataUrl: string
+  inpaintDataUrl: string | null
+  cutoutDataUrl: string | null
+  finalDataUrl: string | null
+  label: string
+  status: 'pending' | 'done' | 'failed'
+}
+
+export interface Blogger {
+  id: string
+  name: string
+  handle: string
+  avatarColor: string
+  bio: string
+  followers: string
+  likes: string
+  hasHome: boolean
+  homeLayoutId: string
+  homeName: string
+  homeDesc: string
+}
+
+export type FurnitureCategory = '沙发' | '茶几' | '吊灯' | '绿植' | '装饰画' | '地毯' | '其他'
+
+export interface LibraryComponent {
+  id: string
+  category: FurnitureCategory
+  sourceCategory?: string
+  name: string
+  source: string
+  sourceDescription?: string
+  size: string
+  styleTags: string[]
+  thumbnail: string
+  color: string
+  sticker: string
+  completedImageUrl?: string
+  sourceCropUrl?: string
+  modelUrl?: string
+  sourceVideo?: {
+    blogger: string
+    frameTime: string
+    frameImg?: string
+    videoId?: string
+    startSec?: number
+    endSec?: number
+    appearances?: Array<{
+      startSec: number
+      endSec: number
+      representativeSec: number
+    }>
+  }
+}
+
+export interface FeedVideo {
+  id: string
+  mediaType?: 'video' | 'image-carousel'
+  src?: string
+  images?: string[]
+  audioSrc?: string
+  poster: string
+  author: string
+  authorBadge?: string
+  publishedAt?: string
+  captionBadge?: string
+  captionAction?: string
+  caption: string
+  music: string
+  source: 'local' | 'amber'
+}
+
+// Feed video filenames are stable, so keep an explicit version in the URL.
+// This lets Vercel/browser caches retain the large MP4s without hiding future
+// media replacements: bump this value whenever a source video changes.
+const FEED_MEDIA_VERSION = '20260723b'
+
+const imagePostMedia = (postId: string, filename: string) => (
+  `/image-posts/${postId}/${filename}?v=image-post-20260808`
+)
+
+export const FEED_VIDEOS: FeedVideo[] = [
+  {
+    id: 'home-1',
+    src: `/videos/home-1.mp4?v=${FEED_MEDIA_VERSION}`,
+    poster: `/video-posters/home-1.jpg?v=${FEED_MEDIA_VERSION}`,
+    author: '@家居灵感研究所',
+    caption: '这个北欧风客厅太治愈了，每一处软装都想抄回家',
+    music: '原声 - home_vibes · 北欧治愈系居家BGM',
+    source: 'local',
+  },
+  {
+    id: 'imgpost_178d69ed78142afc',
+    mediaType: 'image-carousel',
+    images: Array.from({ length: 10 }, (_, index) => (
+      imagePostMedia('imgpost_178d69ed78142afc', `${String(index + 1).padStart(2, '0')}.webp`)
+    )),
+    poster: imagePostMedia('imgpost_178d69ed78142afc', '01.webp'),
+    author: '@嘉基基基基',
+    captionBadge: '图文',
+    caption: '假如你也喜欢我家。那我们审美同频了 #自己装修',
+    music: 'Beanie Beanie Beanie',
+    source: 'amber',
+  },
+]
+
+// 兼容仍依赖单视频常量的旧模块；Feed 主界面使用 FEED_VIDEOS。
+export const VIDEO_SRC = FEED_VIDEOS[0].src ?? ''
+
+export const MOCK_OBJECTS = [
+  { label: '沙发', thumbnail: '🛋️' },
+  { label: '茶几', thumbnail: '🪵' },
+  { label: '吊灯', thumbnail: '💡' },
+  { label: '绿植', thumbnail: '🪴' },
+  { label: '装饰画', thumbnail: '🖼️' },
+  { label: '地毯', thumbnail: '🟫' },
+] as const
+
+export const CATEGORY_COLOR: Record<FurnitureCategory, string> = {
+  '沙发': '#8d6e63',
+  '茶几': '#a1887f',
+  '吊灯': '#c9a227',
+  '绿植': '#4a7c37',
+  '装饰画': '#5c6bc0',
+  '地毯': '#9e6b5a',
+  '其他': '#c59a43',
+}
+
+const RAW_SEED: Omit<LibraryComponent, 'sticker'>[] = [
+  { id: 'seed-1', category: '沙发', name: '北欧布艺三人沙发', source: '来自探家视频 · 今天 14:32', size: '220 × 90 × 85 cm', styleTags: ['北欧', '布艺', '米色'], thumbnail: '🛋️', color: CATEGORY_COLOR['沙发'], sourceVideo: { blogger: '@家居灵感研究所', frameTime: '0:14' } },
+  { id: 'seed-2', category: '吊灯', name: '黄铜分子吊灯', source: '来自装修视频 · 今天 14:30', size: '∅ 60 × 45 cm', styleTags: ['工业', '黄铜', '多头'], thumbnail: '💡', color: CATEGORY_COLOR['吊灯'], sourceVideo: { blogger: '@装修日记本', frameTime: '0:32' } },
+  { id: 'seed-3', category: '绿植', name: '琴叶榕落地', source: '来自探家视频 · 昨天 21:08', size: '∅ 30 × 160 cm', styleTags: ['大型绿植', '陶盆'], thumbnail: '🪴', color: CATEGORY_COLOR['绿植'], sourceVideo: { blogger: '@绿植生活馆', frameTime: '0:08' } },
+  { id: 'seed-4', category: '茶几', name: '胡桃木圆茶几', source: '来自线下拍照 · 昨天 16:50', size: '∅ 70 × 45 cm', styleTags: ['实木', '胡桃木', '圆几'], thumbnail: '🪵', color: CATEGORY_COLOR['茶几'] },
+  { id: 'seed-5', category: '装饰画', name: '抽象肌理装饰画', source: '来自探家视频 · 本周三', size: '60 × 80 cm', styleTags: ['抽象', '肌理', '竖版'], thumbnail: '🖼️', color: CATEGORY_COLOR['装饰画'], sourceVideo: { blogger: '@墙面艺术', frameTime: '0:21' } },
+  { id: 'seed-6', category: '地毯', name: '羊毛几何地毯', source: '来自装修视频 · 本周二', size: '200 × 140 cm', styleTags: ['羊毛', '几何', '暖灰'], thumbnail: '🟫', color: CATEGORY_COLOR['地毯'], sourceVideo: { blogger: '@软装搭配师', frameTime: '0:45' } },
+  { id: 'seed-7', category: '沙发', name: '焦糖色皮艺单椅', source: '来自探家视频 · 本周一', size: '80 × 85 × 75 cm', styleTags: ['复古', '皮艺', '焦糖'], thumbnail: '🛋️', color: '#b86b3a', sourceVideo: { blogger: '@复古家居', frameTime: '0:17' } },
+  { id: 'seed-8', category: '吊灯', name: '和纸竹编吊灯', source: '来自线下拍照 · 更早', size: '∅ 45 × 38 cm', styleTags: ['日式', '竹编', '和纸'], thumbnail: '💡', color: '#cbb88a' },
+]
+
+export const LIBRARY_SEED: LibraryComponent[] = RAW_SEED.map((c) => ({ ...c, sticker: genSticker(c.category, c.color) }))
+
+const BLOGGER_HOME_NAMES: Record<FurnitureCategory, string> = {
+  '沙发': '奶咖色模块沙发',
+  '茶几': '洞石茶几',
+  '吊灯': '纸膜气球灯',
+  '绿植': '天堂鸟落地',
+  '装饰画': '肌理浮雕画',
+  '地毯': '剑麻几何地毯',
+  '其他': '待分类家具',
+}
+
+export const BLOGGER_HOME_PACK: LibraryComponent[] = (
+  [
+    { category: '沙发', color: '#b8a08a' },
+    { category: '茶几', color: '#cdb89a' },
+    { category: '吊灯', color: '#d9c27a' },
+    { category: '绿植', color: '#6b8e5a' },
+    { category: '装饰画', color: '#8a9bbf' },
+    { category: '地毯', color: '#c2a890' },
+  ] as { category: FurnitureCategory; color: string }[]
+).map((c, i) => ({
+  id: `home-pack-${i}`,
+  category: c.category,
+  name: BLOGGER_HOME_NAMES[c.category],
+  source: '来自博主同款小家',
+  size: '博主实测尺寸',
+  styleTags: ['博主同款', '奶油风'],
+  thumbnail: MOCK_OBJECTS.find((m) => m.label === c.category)?.thumbnail ?? '🪑',
+  color: c.color,
+  sticker: genSticker(c.category, c.color, i + 10),
+  sourceVideo: { blogger: '@家居灵感研究所', frameTime: `0:${10 + i * 6}` },
+}))
+
+export const CURRENT_BLOGGER: Blogger = {
+  id: 'blogger-1',
+  name: '家居灵感研究所',
+  handle: 'home_vibes',
+  avatarColor: '#b8a08a',
+  bio: '分享治愈系居家灵感 · 奶油风软装',
+  followers: '128.6w',
+  likes: '982.1w',
+  hasHome: true,
+  homeLayoutId: '1b1l',
+  homeName: '奶油风一居小家',
+  homeDesc: '12 件软装 · 8㎡客厅',
+}

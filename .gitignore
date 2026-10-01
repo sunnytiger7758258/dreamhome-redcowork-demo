@@ -1,0 +1,47 @@
+# ---- 依赖 / 虚拟环境（体积大，绝不入库）----
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# ---- 构建产物 / 缓存 ----
+dist/
+build/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+.cache/
+
+# ---- 大二进制素材（视频 / 3D 模型 / 图片源文件）----
+*.mp4
+*.mov
+*.avi
+*.glb
+*.gltf
+*.obj
+*.fbx
+*.usdz
+*.psd
+*.zip
+
+# 例外：灵感库烘焙后的压缩产物（体积已压到可发布，随前端入库）
+!web/prototype/assets/models/
+!web/prototype/assets/models/*.glb
+!web/prototype/assets/videos/
+!web/prototype/assets/videos/*.mp4
+
+# 例外：包工球交互动画已做浏览器兼容封装，单文件均小于 GitHub 限制。
+!public/mascot-motion/*.mp4
+!public/videos/*.mp4
+!web/mascot-motion/*.mp4
+
+# ---- 环境变量 / 密钥 ----
+.env
+.env.*
+!.env.example
+
+# ---- 系统 / 编辑器 ----
+.DS_Store
+*.log
+.vercel/
