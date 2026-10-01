@@ -180,14 +180,27 @@ export function getAssets(kind, category) {
   // 若放在平台资产之后会造成“生成成功但收藏里看不见”的错觉。
   const combined = getUserAssets().concat(COMPONENT_ASSETS);
   return combined.filter((item) => (
-    item.kind === kind
+    (!kind || item.kind === kind)
     && (!category || item.category === category)
-    && (kind !== 'furniture' || item.source === 'user' || REDCOWORK_FURNITURE_IDS.has(item.id))
+    && (item.kind !== 'furniture' || item.source === 'user' || REDCOWORK_FURNITURE_IDS.has(item.id))
   ));
 }
 
 export function getAsset(id) {
   return ASSET_BY_ID.get(id) || userAssetById(id);
+}
+
+export function sourceFeedHref(asset) {
+  if (!asset?.videoId) return '';
+  const target = new URLSearchParams({ asset: asset.id, video: asset.videoId });
+  if (asset.videoSec != null && Number.isFinite(Number(asset.videoSec))) target.set('t', String(asset.videoSec));
+  return `../discover/index.html#${target}`;
+}
+
+// This REDcowork package is intentionally front-end only. Keep the newest
+// inspiration-library contract without making a failing backend request.
+export async function syncBackendUserAssets() {
+  return getUserAssets();
 }
 
 function isAllowedFavorite(id, userIds) {
