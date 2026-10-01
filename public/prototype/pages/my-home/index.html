@@ -74,8 +74,6 @@
     @media (prefers-reduced-motion: reduce) { .template-empty img { animation:none; } }
     @media (prefers-reduced-motion: reduce) { .template-empty img { animation:none; } }
     .template-card { min-height:0; padding:7px 7px 8px; border: 1px solid rgba(255,255,255,.88); border-radius: 22px; background: rgba(255,255,255,.7); box-shadow: var(--dh-shadow-soft); text-align: left; color: inherit; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
-    .template-card--all { display:grid; place-items:center; border-style:dashed; color:var(--dh-color-sage-700); text-decoration:none; text-align:center; font-size:13px; font-weight:var(--dh-font-weight-heavy); }
-    .template-card--all span { display:block; margin:6px 0 0; color:var(--dh-fg-muted); font-size:10px; font-weight:var(--dh-font-weight-semibold); }
     .template-card:active { transform: scale(.975); }
     .template-card.is-selected { background: #f8fcf6; box-shadow: inset 0 0 0 2px var(--dh-color-sage-600), var(--dh-shadow-card); }
     .plan-mini { position: relative; height: 74px; border: 1.5px solid #8ea18a; border-radius: 10px; background: linear-gradient(145deg, #eef5eb, #fffaf1); overflow: hidden; }
@@ -1035,13 +1033,10 @@
     }
     function renderTemplates() {
       const favorites=getFavoriteTemplates();
-      const totalGeneratable=getAssets('floorplan').filter((asset)=>isSupportedFloorplan(asset)&&TEMPLATES.some((template)=>template.id===asset.templateId)).length;
       const templates=favorites.slice(0,6);
       const cards=templates.map((asset)=>{ const template=TEMPLATES.find((item)=>item.id===asset.templateId); return `<button class="template-card ${state.selectedTemplateId === template.id ? 'is-selected' : ''}" data-template-id="${template.id}" aria-pressed="${state.selectedTemplateId === template.id}"><span class="home-card__preview" aria-label="${template.name}真实 3D 渲染预览"><canvas data-template-preview="${template.id}"></canvas></span><b>${asset.name}</b></button>`; }).join('');
-      // 收藏未满全部户型时，给出「查看灵感库」入口跳户型全部页；已集齐则不展示
-      const browse=favorites.length<totalGeneratable ? `<a class="template-card template-card--all" href="../inspiration-library/index.html?from=myhome#catalog=floorplan" aria-label="去灵感库查看更多户型">查看灵感库<span>更多户型模板</span></a>` : '';
       const empty='<div class="template-empty"><img src="../../assets/mascot/mascot-ui.png" alt="" aria-hidden="true" onerror="this.closest(\'.template-empty\')?.classList.add(\'is-image-missing\');this.remove()"><span>当前暂无收藏可用的户型哦～</span><a class="browse-floorplans" href="../inspiration-library/index.html?from=myhome#catalog=floorplan">去浏览</a></div>';
-      disposeTemplatePreviews(ui.templateGrid);ui.templateGrid.innerHTML=templates.length ? (cards+browse) : empty;
+      disposeTemplatePreviews(ui.templateGrid);ui.templateGrid.innerHTML=templates.length ? cards : empty;
       renderTemplatePreviews(ui.templateGrid);
     }
     function selectTemplate(id) { state.selectedTemplateId = id; state.roomOverride = null; state.drawingFile=null; ui.drawingInput.value=''; ui.uploadName.textContent='支持PNG/JPG/WEBP格式的平面设计图'; ui.setupError.textContent = ''; renderTemplates(); paintGenerateButton(); }

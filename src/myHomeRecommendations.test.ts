@@ -30,6 +30,17 @@ describe('my home intelligent recommendations', () => {
     expect(assetLibrary).toContain('redcowork-eleven-assets-v2')
   })
 
+  it('starts with three collected floorplans and only links to browse from the empty state', () => {
+    const floorplanDefaults = assetLibrary.match(/export const DEFAULT_FLOORPLAN_FAVORITE_IDS = \[([\s\S]*?)\];/)?.[1] ?? ''
+    expect(floorplanDefaults.match(/'floorplan-[^']+'/g)).toHaveLength(3)
+    expect(assetLibrary).toContain('redcowork-three-floorplans-v1')
+    expect(page).not.toContain('template-card--all')
+    expect(page).not.toContain('查看灵感库<span>更多户型模板</span>')
+    expect(page).toContain('templates.length ? cards : empty')
+    expect(page).toContain('当前暂无收藏可用的户型哦～')
+    expect(page).toContain('>去浏览</a>')
+  })
+
   it('does not show the feed mascot in my home', () => {
     expect(page).toContain('.match-assistant-launcher,.match-assistant-nudge,.match-assistant-scrim,.match-assistant-panel { display:none !important; }')
   })

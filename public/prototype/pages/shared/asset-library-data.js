@@ -4,7 +4,13 @@ const FAVORITES_KEY = 'dreamhome.asset-library.v1';
 const USER_ASSETS_KEY = 'dreamhome.user-assets.v1';
 const PROFILE_KEY = 'dreamhome.local-profile.v1';
 const FAVORITES_MIGRATION_KEY = 'dreamhome.asset-library.defaults.redcowork-eleven-assets-v2';
+const FLOORPLAN_FAVORITES_MIGRATION_KEY = 'dreamhome.asset-library.defaults.redcowork-three-floorplans-v1';
 const LEGACY_DEFAULT_FAVORITE_IDS = new Set(['ast_00e00df1bfeb', 'ast_2044e3063585']);
+export const DEFAULT_FLOORPLAN_FAVORITE_IDS = [
+  'floorplan-wide-living',
+  'floorplan-long-living',
+  'floorplan-square-lounge',
+];
 // 产品演示的首次打开收藏。当前用户已明确选择的快照会写入这里；浏览器后续操作仍覆盖本地状态。
 export const DEFAULT_FAVORITE_IDS = [
   'ast_00e00df1bfeb',
@@ -18,6 +24,7 @@ export const DEFAULT_FAVORITE_IDS = [
   'ast_55d33aa2ab71',
   'ast_d83b2f2061bc',
   'ast_2044e3063585',
+  ...DEFAULT_FLOORPLAN_FAVORITE_IDS,
 ];
 
 const REDCOWORK_FURNITURE_IDS = new Set([
@@ -242,10 +249,17 @@ export function getFavorites() {
     const storedIds = Array.isArray(stored?.ids) ? stored.ids : [];
     const onlyLegacyDefaults = storedIds.length > 0 && storedIds.every((id) => LEGACY_DEFAULT_FAVORITE_IDS.has(id));
     const shouldSeed = !localStorage.getItem(FAVORITES_MIGRATION_KEY) && (storedIds.length === 0 || onlyLegacyDefaults);
-    const ids = shouldSeed || !stored ? DEFAULT_FAVORITE_IDS : storedIds;
+    let ids = shouldSeed || !stored ? DEFAULT_FAVORITE_IDS : storedIds;
     if (shouldSeed || !stored) {
       localStorage.setItem(FAVORITES_KEY, JSON.stringify({ version: 2, ids }));
       localStorage.setItem(FAVORITES_MIGRATION_KEY, '1');
+    }
+    // 已打开过旧演示的用户也补一次默认户型；迁移只执行一次，之后用户清空户型时保留真正的空白态。
+    if (!localStorage.getItem(FLOORPLAN_FAVORITES_MIGRATION_KEY)) {
+      const hasFloorplan = ids.some((id) => ASSET_BY_ID.get(id)?.kind === 'floorplan');
+      if (!hasFloorplan) ids = [...new Set([...ids, ...DEFAULT_FLOORPLAN_FAVORITE_IDS])];
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify({ version: 2, ids }));
+      localStorage.setItem(FLOORPLAN_FAVORITES_MIGRATION_KEY, '1');
     }
     const userIds = new Set(getUserAssets().map((item) => item.id));
     return new Set(ids.filter((id) => isAllowedFavorite(id, userIds)));
@@ -259,6 +273,7 @@ export function setFavorites(ids) {
   const known = [...new Set(ids)].filter((id) => isAllowedFavorite(id, userIds));
   localStorage.setItem(FAVORITES_KEY, JSON.stringify({ version: 2, ids: known }));
   localStorage.setItem(FAVORITES_MIGRATION_KEY, '1');
+  localStorage.setItem(FLOORPLAN_FAVORITES_MIGRATION_KEY, '1');
   return new Set(known);
 }
 
