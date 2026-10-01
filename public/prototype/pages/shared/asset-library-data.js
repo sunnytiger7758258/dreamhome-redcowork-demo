@@ -2,6 +2,7 @@ import { BACKEND_ASSETS } from './library-assets.generated.js';
 
 const FAVORITES_KEY = 'dreamhome.asset-library.v1';
 const USER_ASSETS_KEY = 'dreamhome.user-assets.v1';
+const PROFILE_KEY = 'dreamhome.local-profile.v1';
 const FAVORITES_MIGRATION_KEY = 'dreamhome.asset-library.defaults.redcowork-two-assets-v1';
 // 产品演示的首次打开收藏。当前用户已明确选择的快照会写入这里；浏览器后续操作仍覆盖本地状态。
 export const DEFAULT_FAVORITE_IDS = [
@@ -56,6 +57,19 @@ const COLOR_HEX = {
   粉色: '#d8a9a4', 透明: '#d8d4cc', 彩色: '#c0a06a', 浅木色: '#cbb089', 原木色: '#cbb089',
 };
 const DEFAULT_OBJECT_COLOR = '#b98d61';
+
+export function getDreamHomeUserId() {
+  const configured = String(window.__DREAMHOME_USER_ID__ || '').trim();
+  if (configured) return configured;
+  try {
+    const stored = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
+    if (typeof stored.userId === 'string' && stored.userId.trim()) return stored.userId;
+  } catch (_) {}
+  const suffix = globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const userId = `local-profile-${suffix}`;
+  localStorage.setItem(PROFILE_KEY, JSON.stringify({ version: 1, userId }));
+  return userId;
+}
 const lightenHex = (hex, amount = .3) => {
   const n = parseInt(hex.slice(1), 16);
   const mix = (c) => Math.round(c + (255 - c) * amount);
